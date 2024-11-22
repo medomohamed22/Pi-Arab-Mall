@@ -11,12 +11,12 @@
   <button id="pi-payment-button">دفع الآن</button>
 
   <script>
-    // تهيئة Pi SDK باستخدام API Key
+    // تهيئة Pi SDK
     const pi = window.Pi;
     pi.init({
       version: "2.0",
-      sandbox: true, // ضعها false عند الإطلاق
-      developerKey: "uzvbab6q3tcjw9brxiovmr1tdbu5wjxhtiwnbklfz4yxiutpldvtov7sqmd0hcuz", // استبدل YOUR_API_KEY بمفتاحك الفعلي
+      sandbox: true, // للاختبار فقط
+      developerKey: "uzvbab6q3tcjw9brxiovmr1tdbu5wjxhtiwnbklfz4yxiutpldvtov7sqmd0hcuz", // استبدل بمفتاحك
     });
 
     const paymentButton = document.getElementById("pi-payment-button");
@@ -26,20 +26,22 @@
         const payment = await pi.createPayment({
           amount: 1, // المبلغ بالدولار
           memo: "Test Payment", // وصف الدفع
-          metadata: { customField: "customValue" }, // بيانات إضافية إن لزم
+          metadata: { customField: "customValue" }, // بيانات إضافية
         });
 
-        // معالجة نجاح الدفع
+        // نجاح الدفع
         payment.onSuccess(() => {
           alert("تم الدفع بنجاح!");
         });
 
-        // معالجة فشل الدفع
+        // فشل الدفع
         payment.onFailure((error) => {
+          console.error("تفاصيل الخطأ:", error);
           alert("فشل الدفع: " + error.message);
         });
       } catch (error) {
         console.error("خطأ أثناء إنشاء الدفع:", error);
+        alert("خطأ في إنشاء الدفع. تحقق من الإعدادات.");
       }
     });
   </script>
