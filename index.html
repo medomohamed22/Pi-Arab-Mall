@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pi Network Payment</title>
+  <script src="https://sdk.minepi.com/pi-sdk.js"></script> <!-- Pi SDK -->
+</head>
+<body>
+  <h1>ادفع باستخدام عملة Pi Network</h1>
+  <button id="pi-payment-button">دفع الآن</button>
+
+  <script>
+    // التهيئة باستخدام Pi Network SDK
+    const pi = window.Pi;
+    pi.init({
+      version: "2.0",
+      sandbox: true, // ضعها false في الإنتاج
+    });
+
+    const paymentButton = document.getElementById("pi-payment-button");
+
+    paymentButton.addEventListener("click", async () => {
+      try {
+        const payment = await pi.createPayment({
+          amount: 1, // المبلغ بالدولار
+          memo: "Test Payment", // وصف الدفع
+          metadata: { customField: "customValue" },
+        });
+
+        payment.onSuccess(() => {
+          alert("تم الدفع بنجاح!");
+        });
+
+        payment.onFailure((error) => {
+          alert("فشل الدفع: " + error.message);
+        });
+      } catch (error) {
+        console.error("خطأ أثناء إنشاء الدفع:", error);
+      }
+    });
+  </script>
+</body>
+</html>
