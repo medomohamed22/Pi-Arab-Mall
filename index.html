@@ -1,67 +1,71 @@
-<!DOCTYPE html>
-<html lang="ar">
+<!doctype html>
+<html lang="ar" dir="rtl">
 <head>
-  <meta charset="UTF-8">
-  <title>Donate Way - تبرعات Pi</title>
+  <meta charset="utf-8" />
+  <title>DonateWay – Pi</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      background: #f9f9f9;
-      text-align: center;
-      padding: 40px;
-    }
-    h1 {
-      color: #6a1b9a;
-    }
-    button {
-      padding: 12px 24px;
-      margin-top: 20px;
-      background: #6a1b9a;
-      color: #fff;
-      border: none;
-      border-radius: 8px;
-      font-size: 16px;
-      cursor: pointer;
-    }
-    button:hover {
-      background: #8e24aa;
-    }
+    body { font-family: sans-serif; background: #0e1420; color: #eee; text-align:center; padding:20px }
+    input, button { padding:10px; margin:6px; border-radius:8px; border:1px solid #444 }
+    button { cursor:pointer; background:#7c5cff; color:white; font-weight:bold }
+    .box { background:#1a2035; padding:20px; border-radius:12px; max-width:400px; margin:auto }
   </style>
 </head>
 <body>
-  <h1>🌍 منصة التبرعات Pi</h1>
-  <p>ادعمنا بتبرعك عبر شبكة Pi</p>
-  <button onclick="donate()">تبرع الآن</button>
+  <div class="box">
+    <h1>تبرع بعملة Pi</h1>
+    <input id="amount" type="number" value="1" min="0.01" step="0.01" />
+    <button id="donateBtn">تبرع الآن</button>
+    <p id="status"></p>
+  </div>
 
+  <!-- تحميل SDK -->
+  <script src="https://sdk.pinet.com/pi-sdk.js"></script>
   <script>
-    async function donate() {
+    Pi.init({ version: "2.0", sandbox: false });
+
+    const donateBtn = document.getElementById("donateBtn");
+    const statusEl = document.getElementById("status");
+
+    donateBtn.addEventListener("click", async () => {
       try {
-        const payment = await fetch("/api/create-payment", {
+        const scopes = ["username", "payments"];
+        const auth = await Pi.authenticate(scopes, (incomplete) => {
+          console.log("دفعة غير مكتملة", incomplete);
+        });
+
+        const amount = parseFloat(document.getElementById("amount").value);
+        const paymentData = await fetch("/api/create-payment", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ amount: 1, memo: "تبرع تجريبي" })
+          body: JSON.stringify({ amount, memo: "تبرع عبر DonateWay" })
         }).then(r => r.json());
 
-        alert("تم إنشاء دفعة: " + payment.identifier);
-
-        await fetch("/api/approve-payment", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ paymentId: payment.identifier })
+        await Pi.createPayment(paymentData, {
+          onReadyForServerApproval: async (paymentId) => {
+            await fetch("/api/approve-payment", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ paymentId })
+            });
+          },
+          onReadyForServerCompletion: async (paymentId, txid) => {
+            await fetch("/api/complete-payment", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ paymentId, txid })
+            });
+          },
+          onCancel: () => statusEl.textContent = "تم إلغاء الدفع ❌",
+          onError: (err) => statusEl.textContent = "خطأ: " + err
         });
 
-        await fetch("/api/complete-payment", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ paymentId: payment.identifier, txid: "demo-txid-123" })
-        });
-
-        alert("✅ تم إكمال الدفع بنجاح!");
+        statusEl.textContent = "تم إنشاء الدفع ✔️";
       } catch (err) {
         console.error(err);
-        alert("❌ حصل خطأ في العملية");
+        statusEl.textContent = "حدث خطأ أثناء التبرع";
       }
-    }
+    });
   </script>
 </body>
 </html>
