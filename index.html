@@ -45,6 +45,7 @@
     .brand h1{font-size:18px;margin:0}
     nav{display:flex;gap:12px;align-items:center}
     .btn{background:var(--bg);color:var(--purple-600);padding:8px 12px;border-radius:10px;border:none;font-weight:600;cursor:pointer}
+    .login-btn{background:linear-gradient(90deg,var(--purple-500),var(--purple-600));color:white}
     .hero{
       padding:30px 18px 22px;
       max-width:1200px;margin:20px auto 0;display:flex;gap:24px;align-items:center;flex-wrap:wrap
@@ -104,6 +105,7 @@ input[type="number"], input[type="text"]{padding:10px;border-radius:10px;border:
       </div>
     </div>
     <nav>
+      <button class="btn login-btn" id="loginBtn">تسجيل الدخول</button>
       <button class="btn" id="createCampaignBtn">إنشاء حملة</button>
       <button class="btn secondary" id="myCampaignsBtn">حملاتي</button>
     </nav>
@@ -177,6 +179,7 @@ input[type="number"], input[type="text"]{padding:10px;border-radius:10px;border:
         const authResult = await Pi.authenticate(scopes, onIncompletePaymentFound);
         if (authResult.user) {
           piUser = authResult.user;
+          updateLoginButton();
           document.getElementById('donorName').value = piUser.username || piUser.displayName || '';
           document.getElementById('connectPiBtn').textContent = 'تم الربط ✓';
           document.getElementById('connectPiBtn').disabled = true;
@@ -186,6 +189,30 @@ input[type="number"], input[type="text"]{padding:10px;border-radius:10px;border:
         console.error('خطأ في المصادقة:', error);
         alert('فشل في الاتصال بـ Pi. حاول مرة أخرى.');
       }
+    }
+
+    // تحديث زر تسجيل الدخول
+    function updateLoginButton() {
+      const loginBtn = document.getElementById('loginBtn');
+      if (piUser) {
+        loginBtn.textContent = `مرحبا، ${piUser.username || piUser.displayName}`;
+        loginBtn.classList.remove('login-btn');
+        loginBtn.onclick = logout;
+      } else {
+        loginBtn.textContent = 'تسجيل الدخول';
+        loginBtn.classList.add('login-btn');
+        loginBtn.onclick = authenticateWithPi;
+      }
+    }
+
+    // تسجيل الخروج
+    function logout() {
+      piUser = null;
+      updateLoginButton();
+      document.getElementById('donorName').value = '';
+      document.getElementById('connectPiBtn').textContent = 'ربط حساب Pi للحصول على الاسم تلقائياً';
+      document.getElementById('connectPiBtn').disabled = false;
+      alert('تم تسجيل الخروج بنجاح');
     }
 
     // وظيفة للدفع باستخدام Pi (يمكن توسيعها لاحقاً)
@@ -293,7 +320,7 @@ input[type="number"], input[type="text"]{padding:10px;border-radius:10px;border:
     document.getElementById('closeModal').addEventListener('click',()=>modal.style.display='none');
     document.getElementById('cancelDonate').addEventListener('click',()=>modal.style.display='none');
 
-    // ربط حساب Pi
+    // ربط حساب Pi في المودال
     document.getElementById('connectPiBtn').addEventListener('click', authenticateWithPi);
 
     // محاكاة الدفع مع دعم Pi (يمكن استبدالها بدفع حقيقي)
@@ -351,8 +378,13 @@ input[type="number"], input[type="text"]{padding:10px;border-radius:10px;border:
     });
     document.getElementById('clearSearch').addEventListener('click', ()=>{document.getElementById('search').value='';renderCampaigns(campaigns)});
 
-    // إنشاء حملة بسيطة (محلياً)
+    // إنشاء حملة بسيطة (محلياً) - يتطلب تسجيل دخول
     document.getElementById('createCampaignBtn').addEventListener('click', ()=>{
+      if (!piUser) {
+        alert('يجب تسجيل الدخول أولاً لإنشاء حملة');
+        authenticateWithPi();
+        return;
+      }
       const title = prompt('اسم الحملة'); if(!title) return;
       const desc = prompt('وصف موجز للحملة')||'';
       const goal = Number(prompt('الهدف (pi)')||0); if(!goal) return alert('ادخل هدف صالح');
@@ -361,11 +393,19 @@ input[type="number"], input[type="text"]{padding:10px;border-radius:10px;border:
       renderCampaigns(campaigns);
     });
 
-    // فتح حملات المستخدم (محلياً فقط)
+    // فتح حملات المستخدم (محلياً فقط) - يتطلب تسجيل دخول
     document.getElementById('myCampaignsBtn').addEventListener('click', ()=>{
+      if (!piUser) {
+        alert('يجب تسجيل الدخول أولاً لرؤية حملاتك');
+        authenticateWithPi();
+        return;
+      }
       const my = campaigns.slice(0,3);
       renderCampaigns(my);
     });
+
+    // تحديث زر الدخول عند التحميل
+    updateLoginButton();
 
     // تحسين: تفعيل progress animation بعد الادراج
     const observer = new MutationObserver(()=>{
