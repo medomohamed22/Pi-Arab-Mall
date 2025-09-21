@@ -1,10 +1,10 @@
 <!doctype html>
+
 <html lang="ar" dir="rtl">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Donate Way — تبرع بسهولة</title>
-  <script src="https://sdk.minepi.com/pi-sdk.js"></script>
   <style>
     :root{
       --purple-500:#6b21a8;
@@ -21,6 +21,8 @@
       font-family: Inter, system-ui, 'Segoe UI', Tahoma, Arial, sans-serif;
       background: linear-gradient(180deg, #f8f5ff 0%, #fff 60%);
       color:#111827;
+      -webkit-font-smoothing:antialiased;
+      -moz-osx-font-smoothing:grayscale;
       line-height:1.5;
     }
     header{
@@ -43,8 +45,13 @@
     .brand h1{font-size:18px;margin:0}
     nav{display:flex;gap:12px;align-items:center}
     .btn{background:var(--bg);color:var(--purple-600);padding:8px 12px;border-radius:10px;border:none;font-weight:600;cursor:pointer}
-    .hero{padding:30px 18px 22px;max-width:1200px;margin:20px auto 0;display:flex;gap:24px;align-items:center;flex-wrap:wrap}
-    .hero-card{flex:1 1 420px;background:linear-gradient(180deg, rgba(255,255,255,0.8), rgba(255,255,255,0.65));border-radius:16px;padding:18px;backdrop-filter: blur(6px);box-shadow:0 10px 30px rgba(99,102,241,0.08);}
+    .hero{
+      padding:30px 18px 22px;
+      max-width:1200px;margin:20px auto 0;display:flex;gap:24px;align-items:center;flex-wrap:wrap
+    }
+    .hero-card{
+      flex:1 1 420px;background:linear-gradient(180deg, rgba(255,255,255,0.8), rgba(255,255,255,0.65));border-radius:16px;padding:18px;backdrop-filter: blur(6px);box-shadow:0 10px 30px rgba(99,102,241,0.08);
+    }
     .hero-card h2{margin:0 0 6px 0;font-size:20px;color:var(--purple-600)}
     .hero-card p{color:var(--muted);margin:0 0 12px 0}
     .search-wrap{display:flex;gap:8px}
@@ -61,23 +68,30 @@
     .small{font-size:13px;color:var(--muted)}
     .donate-row{display:flex;gap:8px}
     .donate{flex:1;padding:10px;border-radius:10px;border:none;background:linear-gradient(90deg,var(--purple-500),var(--purple-600));color:white;font-weight:700;cursor:pointer}
-    .secondary{background:transparent;border:1px solid rgba(107,33,168,0.12);color:var(--purple-600)}
-    @media(max-width:1000px){.cards{grid-template-columns:repeat(2,1fr)}}
-    @media(max-width:640px){
-      header{padding:14px}
-      .cards{grid-template-columns:1fr}
-      .hero{flex-direction:column}
-      .brand h1{font-size:16px}
-      .logo{width:44px;height:44px}
-    }
-    footer{max-width:1200px;margin:0 auto 30px;padding:18px;color:var(--muted);display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px}
-    .modal-backdrop{position:fixed;inset:0;background:rgba(2,6,23,0.5);display:none;align-items:center;justify-content:center;padding:16px;z-index:60}
-    .modal{background:white;border-radius:14px;padding:18px;max-width:520px;width:100%;box-shadow:0 10px 40px rgba(2,6,23,0.3);position:relative}
-    .modal h4{margin:0 0 8px}
-    .field{display:flex;flex-direction:column;gap:6px;margin-bottom:10px}
-    input[type="number"], input[type="text"]{padding:10px;border-radius:10px;border:1px solid #eee}
-    .close{background:transparent;border:0;position:absolute;top:12px;left:12px;font-size:18px;cursor:pointer}
-    .tag{background:linear-gradient(90deg,#f3e8ff,#faf5ff);padding:6px 8px;border-radius:999px;font-weight:700;color:var(--purple-600);font-size:13px}
+    .secondary{background:transparent;border:1px solid rgba(107,33,168,0.12);color:var(--purple-600)}/* Responsive */
+@media(max-width:1000px){.cards{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:640px){
+  header{padding:14px}
+  .cards{grid-template-columns:1fr}
+  .hero{flex-direction:column}
+  .brand h1{font-size:16px}
+  .logo{width:44px;height:44px}
+}
+
+/* Footer */
+footer{max-width:1200px;margin:0 auto 30px;padding:18px;color:var(--muted);display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px}
+
+/* Modal */
+.modal-backdrop{position:fixed;inset:0;background:rgba(2,6,23,0.5);display:none;align-items:center;justify-content:center;padding:16px;z-index:60}
+.modal{background:white;border-radius:14px;padding:18px;max-width:520px;width:100%;box-shadow:0 10px 40px rgba(2,6,23,0.3)}
+.modal h4{margin:0 0 8px}
+.field{display:flex;flex-direction:column;gap:6px;margin-bottom:10px}
+input[type="number"], input[type="text"]{padding:10px;border-radius:10px;border:1px solid #eee}
+.close{background:transparent;border:0;position:absolute;top:12px;left:12px;font-size:18px;cursor:pointer}
+
+/* small tweaks */
+.tag{background:linear-gradient(90deg,#f3e8ff,#faf5ff);padding:6px 8px;border-radius:999px;font-weight:700;color:var(--purple-600);font-size:13px}
+
   </style>
 </head>
 <body>
@@ -90,13 +104,10 @@
       </div>
     </div>
     <nav>
-      <button class="btn" id="loginPiBtn">تسجيل الدخول بـ Pi</button>
       <button class="btn" id="createCampaignBtn">إنشاء حملة</button>
       <button class="btn secondary" id="myCampaignsBtn">حملاتي</button>
     </nav>
-  </header>
-
-  <main>
+  </header>  <main>
     <section class="hero">
       <div class="hero-card">
         <h2>ساهم الآن — فرق صغير يصنع أثر كبير</h2>
@@ -120,24 +131,20 @@
           <button class="donate" onclick="openDonateQuick(0)">تبرع سريع</button>
         </div>
       </div>
-    </section>
+    </section><section class="campaigns">
+  <div class="section-head">
+    <h3>حملات بارزة</h3>
+    <div class="small">عرض 6 حملات — مرّ بالتمرير لمزيد</div>
+  </div>
+  <div class="cards" id="campaignList">
+    <!-- حملات ستضاف عبر جافاسكربت -->
+  </div>
+</section>
 
-    <section class="campaigns">
-      <div class="section-head">
-        <h3>حملات بارزة</h3>
-        <div class="small">عرض 6 حملات — مرّ بالتمرير لمزيد</div>
-      </div>
-      <div class="cards" id="campaignList"></div>
-    </section>
-  </main>
-
-  <footer>
+  </main>  <footer>
     <div>© Donate Way — 2025</div>
     <div class="small">تواصل معنا: donate@donateway.example</div>
-  </footer>
-
-  <!-- Modal -->
-  <div class="modal-backdrop" id="modalBackdrop">
+  </footer>  <!-- Modal -->  <div class="modal-backdrop" id="modalBackdrop">
     <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
       <button class="close" id="closeModal">✕</button>
       <h4 id="modalTitle">تبرع للحملة</h4>
@@ -147,8 +154,9 @@
         <input type="number" id="donationAmount" min="1" value="50">
       </div>
       <div class="field">
-        <label class="small">الاسم</label>
-        <input type="text" id="donorName" readonly>
+        <label class="small">الاسم (اختياري)</label>
+        <input type="text" id="donorName" placeholder="اسمك الظاهر في الشكر">
+        <button class="btn secondary" id="connectPiBtn" style="margin-top:4px">ربط حساب Pi للحصول على الاسم تلقائياً</button>
       </div>
       <div style="display:flex;gap:8px;align-items:center">
         <button class="donate" id="confirmDonate">دفع وتبرع</button>
@@ -156,9 +164,55 @@
       </div>
       <div id="donationStatus" style="margin-top:12px"></div>
     </div>
-  </div>
-
+  </div>  <script src="https://sdk.minepi.com/pi-sdk.js"></script>
   <script>
+    // تهيئة Pi SDK
+    let piUser = null;
+    Pi.init({ version: "2.0", sandbox: true }); // استخدم sandbox: false للإنتاج
+
+    // وظيفة للمصادقة مع Pi للحصول على اسم المستخدم
+    async function authenticateWithPi() {
+      try {
+        const scopes = ['username'];
+        const authResult = await Pi.authenticate(scopes, onIncompletePaymentFound);
+        if (authResult.user) {
+          piUser = authResult.user;
+          document.getElementById('donorName').value = piUser.username || piUser.displayName || '';
+          document.getElementById('connectPiBtn').textContent = 'تم الربط ✓';
+          document.getElementById('connectPiBtn').disabled = true;
+          console.log('تم الحصول على بيانات المستخدم:', piUser);
+        }
+      } catch (error) {
+        console.error('خطأ في المصادقة:', error);
+        alert('فشل في الاتصال بـ Pi. حاول مرة أخرى.');
+      }
+    }
+
+    // وظيفة للدفع باستخدام Pi (يمكن توسيعها لاحقاً)
+    async function payWithPi(amount, metadata) {
+      try {
+        const paymentData = {
+          amount: amount,
+          memo: metadata,
+          metadata: metadata
+        };
+        const payment = await Pi.createPayment(paymentData, {
+          onReadyForServerApproval: function(paymentId) { /* معالجة الموافقة */ },
+          onPaymentRequestCanceled: function() { /* إلغاء */ },
+          onReadyForServerCompletion: function(paymentId, txid) { /* إكمال */ }
+        });
+        return payment;
+      } catch (error) {
+        console.error('خطأ في الدفع:', error);
+        throw error;
+      }
+    }
+
+    // معالج للدفعات غير المكتملة
+    function onIncompletePaymentFound(payment) {
+      console.log('دفع غير مكتمل:', payment);
+    }
+
     // بيانات تجريبية للحملات
     const campaigns = [
       {id:1,title:'بناء فصل دراسي للقرية',desc:'مساعدة الأطفال للحصول على بيئة تعليمية لائقة',goal:50000,raised:21900,image:''},
@@ -193,7 +247,7 @@
               <div class="small">تم جمع: <strong>${formatMoney(c.raised)}</strong></div>
             </div>
           </div>
-          <div class="progress"><i style="width:${percent}%"></i></div>
+          <div class="progress" aria-hidden="true"><i style="width:${percent}%"></i></div>
           <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
             <div class="small">${percent}%</div>
             <div class="donate-row">
@@ -210,83 +264,74 @@
       return 'pi ' + n.toLocaleString('en-US');
     }
 
+    // عرض أول مرة
     renderCampaigns(campaigns);
 
-    // Pi SDK
-    Pi.init({ version: "2.0", sandbox: true }); 
-    let currentUser = null;
-
-    document.getElementById("loginPiBtn").addEventListener("click", async () => {
-      try {
-        const scopes = ["username", "payments"]; 
-        const user = await Pi.authenticate(scopes, onIncompletePaymentFound);
-        currentUser = user;
-        donorName.value = user.username;
-        alert("تم تسجيل الدخول: " + user.username);
-      } catch (e) {
-        console.error(e);
-        alert("فشل تسجيل الدخول");
-      }
-    });
-
-    function onIncompletePaymentFound(payment) {
-      console.log("مدفوعات غير مكتملة:", payment);
-    }
-
+    // فتح مودال تبرع
     let activeCampaign = null;
     function openDonate(id){
       activeCampaign = campaigns.find(x=>x.id===id);
       modalTitle.textContent = 'تبرع للحملة';
       modalCampaignName.textContent = activeCampaign.title;
       donationAmount.value = 50;
-      donorName.value = currentUser ? currentUser.username : '';
+      donorName.value = piUser ? (piUser.username || piUser.displayName || '') : '';
       donationStatus.innerHTML = '';
       modal.style.display = 'flex';
+      // إعادة تعيين زر الربط
+      const connectBtn = document.getElementById('connectPiBtn');
+      connectBtn.textContent = piUser ? 'تم الربط ✓' : 'ربط حساب Pi للحصول على الاسم تلقائياً';
+      connectBtn.disabled = !!piUser;
+      // for accessibility focus
+      setTimeout(()=>document.getElementById('donationAmount').focus(),200);
     }
+
     function openDonateQuick(id){
+      // افتح أول حملة افتراضياً
       openDonate(campaigns[0].id);
     }
 
     document.getElementById('closeModal').addEventListener('click',()=>modal.style.display='none');
     document.getElementById('cancelDonate').addEventListener('click',()=>modal.style.display='none');
 
-    document.getElementById('confirmDonate').addEventListener('click', async ()=>{
-      if(!currentUser){
-        donationStatus.innerHTML = '<div class="small" style="color:#b91c1c">سجّل الدخول أولاً بمحفظة Pi</div>';
-        return;
-      }
-      const amount = Number(donationAmount.value);
-      if(!amount || amount < 1){ 
-        donationStatus.innerHTML = '<div class="small" style="color:#b91c1c">ادخل مبلغ صالح</div>'; 
-        return;
-      }
-      donationStatus.innerHTML = '<div class="small">...جاري إرسال المعاملة عبر Pi Network</div>';
-      try {
-        await Pi.createPayment({
-          amount: amount,
-          memo: "تبرع إلى " + activeCampaign.title,
-          metadata: { campaignId: activeCampaign.id }
-        },{
-          onReadyForServerApproval: (paymentId) => console.log("جاهز للموافقة:", paymentId),
-          onReadyForServerCompletion: (paymentId, txid) => console.log("جاهز للإكمال:", paymentId, txid),
-          onCancel: (paymentId) => {
-            donationStatus.innerHTML = '<div class="small" style="color:#b91c1c">تم إلغاء الدفع</div>';
-          },
-          onError: (error, paymentId) => {
-            console.error(error);
-            donationStatus.innerHTML = '<div class="small" style="color:#b91c1c">خطأ في الدفع</div>';
-          }
-        });
+    // ربط حساب Pi
+    document.getElementById('connectPiBtn').addEventListener('click', authenticateWithPi);
 
+    // محاكاة الدفع مع دعم Pi (يمكن استبدالها بدفع حقيقي)
+    document.getElementById('confirmDonate').addEventListener('click', async ()=>{
+      const amount = Number(donationAmount.value);
+      const donorNameValue = donorName.value || 'مجهول';
+      if(!amount || amount < 1){ donationStatus.innerHTML = '<div class="small" style="color:#b91c1c">ادخل مبلغ صالح</div>'; return }
+      
+      let paymentSuccess = false;
+      const metadata = `تبرع لـ ${activeCampaign.title} من ${donorNameValue}`;
+      
+      donationStatus.innerHTML = '<div class="small">...جاري معالجة الدفع</div>';
+
+      try {
+        if (piUser) {
+          // استخدام Pi للدفع
+          const payment = await payWithPi(amount, metadata);
+          if (payment && payment.status === 'completed') {
+            paymentSuccess = true;
+          }
+        } else {
+          // محاكاة إذا لم يكن مرتبط
+          await new Promise(resolve => setTimeout(resolve, 1200));
+          paymentSuccess = true;
+        }
+      } catch (error) {
+        donationStatus.innerHTML = '<div class="small" style="color:#b91c1c">فشل في الدفع. حاول مرة أخرى.</div>';
+        return;
+      }
+
+      if (paymentSuccess) {
         activeCampaign.raised += amount;
-        donationStatus.innerHTML = `<div style="padding:10px;border-radius:8px;background:linear-gradient(90deg,var(--purple-400),var(--purple-500));color:white">شكراً ${currentUser.username}! تم استلام تبرع ${formatMoney(amount)}</div>`;
+        donationStatus.innerHTML = `<div style="padding:10px;border-radius:8px;background:linear-gradient(90deg,var(--purple-400),var(--purple-500));color:white">شكراً ${donorNameValue}! تم استلام تبرع ${formatMoney(amount)} — تم التحديث</div>`;
         renderCampaigns(campaigns);
-      } catch (err) {
-        console.error(err);
-        donationStatus.innerHTML = '<div class="small" style="color:#b91c1c">فشل إتمام العملية</div>';
       }
     });
 
+    // مشاركة (نسخ رابط)
     function shareCampaign(id){
       const c = campaigns.find(x=>x.id===id);
       const url = location.href + '#campaign-' + id;
@@ -297,6 +342,40 @@
       }
     }
 
+    // بحث
     document.getElementById('search').addEventListener('input', (e)=>{
       const q = e.target.value.trim().toLowerCase();
-      if(!q
+      if(!q) return renderCampaigns(campaigns);
+      const filtered = campaigns.filter(c=> (c.title + ' ' + c.desc).toLowerCase().includes(q));
+      renderCampaigns(filtered);
+    });
+    document.getElementById('clearSearch').addEventListener('click', ()=>{document.getElementById('search').value='';renderCampaigns(campaigns)});
+
+    // إنشاء حملة بسيطة (محلياً)
+    document.getElementById('createCampaignBtn').addEventListener('click', ()=>{
+      const title = prompt('اسم الحملة'); if(!title) return;
+      const desc = prompt('وصف موجز للحملة')||'';
+      const goal = Number(prompt('الهدف (pi)')||0); if(!goal) return alert('ادخل هدف صالح');
+      const id = Math.max(...campaigns.map(c=>c.id))+1;
+      campaigns.unshift({id,title,desc,goal:goal,raised:0,image:''});
+      renderCampaigns(campaigns);
+    });
+
+    // فتح حملات المستخدم (محلياً فقط)
+    document.getElementById('myCampaignsBtn').addEventListener('click', ()=>{
+      const my = campaigns.slice(0,3);
+      renderCampaigns(my);
+    });
+
+    // تحسين: تفعيل progress animation بعد الادراج
+    const observer = new MutationObserver(()=>{
+      document.querySelectorAll('.progress > i').forEach(i=>{
+        const w = i.style.width;
+        i.style.width = '0%';
+        requestAnimationFrame(()=>{ i.style.width = w; });
+      });
+    });
+    observer.observe(campaignList,{childList:true});
+
+  </script></body>
+</html>
