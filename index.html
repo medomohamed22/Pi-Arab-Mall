@@ -170,7 +170,7 @@ input[type="number"], input[type="text"]{padding:10px;border-radius:10px;border:
   <script>
     // تهيئة Pi SDK
     let piUser = null;
-    Pi.init({ version: "2.0", sandbox: true }); // استخدم sandbox: false للإنتاج
+    Pi.init({ version: "2.0", sandbox: false }); // استخدم sandbox: false للإنتاج
 
     // وظيفة للمصادقة مع Pi للحصول على اسم المستخدم
     async function authenticateWithPi() {
