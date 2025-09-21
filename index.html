@@ -215,24 +215,75 @@ input[type="number"], input[type="text"]{padding:10px;border-radius:10px;border:
       alert('تم تسجيل الخروج بنجاح');
     }
 
-    // وظيفة للدفع باستخدام Pi (يمكن توسيعها لاحقاً)
-    async function payWithPi(amount, metadata) {
+    // دالة للاتصال بالخادم للموافقة على الدفع
+    async function approvePayment(paymentId) {
       try {
+        const response = await fetch('/api/approve', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ paymentId })
+        });
+        if (!response.ok) throw new Error('Server approval failed');
+        console.log('تم الموافقة على الدفع:', paymentId);
+      } catch (error) {
+        console.error('خطأ في الموافقة:', error);
+        throw error;
+      }
+    }
+
+    // دالة للاتصال بالخادم لإكمال الدفع
+    async function completePayment(txId) {
+      try {
+        const response = await fetch('/api/complete', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ txId })
+        });
+        if (!response.ok) throw new Error('Server completion failed');
+        console.log('تم إكمال الدفع:', txId);
+      } catch (error) {
+        console.error('خطأ في الإكمال:', error);
+        throw error;
+      }
+    }
+
+    // وظيفة للدفع باستخدام Pi مع معالجة الـ callbacks
+    async function payWithPi(amount, metadata) {
+      return new Promise((resolve, reject) => {
         const paymentData = {
           amount: amount,
           memo: metadata,
           metadata: metadata
         };
-        const payment = await Pi.createPayment(paymentData, {
-          onReadyForServerApproval: function(paymentId) { /* معالجة الموافقة */ },
-          onPaymentRequestCanceled: function() { /* إلغاء */ },
-          onReadyForServerCompletion: function(paymentId, txid) { /* إكمال */ }
+
+        Pi.createPayment(paymentData, {
+          onReadyForServerApproval: async function(paymentId) {
+            try {
+              await approvePayment(paymentId);
+              console.log('جاهز للموافقة على الخادم');
+            } catch (error) {
+              reject(error);
+            }
+          },
+          onPaymentRequestCanceled: function(paymentId) {
+            console.log('تم إلغاء الدفع:', paymentId);
+            reject(new Error('Payment canceled'));
+          },
+          onReadyForServerCompletion: async function(paymentId, txid) {
+            try {
+              await completePayment(txid);
+              console.log('جاهز لإكمال الخادم');
+              resolve({ paymentId, txid, status: 'completed' });
+            } catch (error) {
+              reject(error);
+            }
+          },
+          onError: function(error, payment) {
+            console.log('خطأ في الدفع:', error, payment);
+            reject(error);
+          }
         });
-        return payment;
-      } catch (error) {
-        console.error('خطأ في الدفع:', error);
-        throw error;
-      }
+      });
     }
 
     // معالج للدفعات غير المكتملة
@@ -323,38 +374,35 @@ input[type="number"], input[type="text"]{padding:10px;border-radius:10px;border:
     // ربط حساب Pi في المودال
     document.getElementById('connectPiBtn').addEventListener('click', authenticateWithPi);
 
-    // محاكاة الدفع مع دعم Pi (يمكن استبدالها بدفع حقيقي)
+    // دفع مع دعم Pi الكامل
     document.getElementById('confirmDonate').addEventListener('click', async ()=>{
       const amount = Number(donationAmount.value);
       const donorNameValue = donorName.value || 'مجهول';
-      if(!amount || amount < 1){ donationStatus.innerHTML = '<div class="small" style="color:#b91c1c">ادخل مبلغ صالح</div>'; return }
+      if(!amount || amount < 1){ 
+        donationStatus.innerHTML = '<div class="small" style="color:#b91c1c">ادخل مبلغ صالح</div>'; 
+        return; 
+      }
       
-      let paymentSuccess = false;
+      if (!piUser) { 
+        donationStatus.innerHTML = '<div class="small" style="color:#b91c1c">يجب تسجيل الدخول بـ Pi أولاً</div>'; 
+        authenticateWithPi();
+        return; 
+      }
+      
       const metadata = `تبرع لـ ${activeCampaign.title} من ${donorNameValue}`;
       
-      donationStatus.innerHTML = '<div class="small">...جاري معالجة الدفع</div>';
+      donationStatus.innerHTML = '<div class="small">...جاري معالجة الدفع عبر Pi Network</div>';
 
       try {
-        if (piUser) {
-          // استخدام Pi للدفع
-          const payment = await payWithPi(amount, metadata);
-          if (payment && payment.status === 'completed') {
-            paymentSuccess = true;
-          }
-        } else {
-          // محاكاة إذا لم يكن مرتبط
-          await new Promise(resolve => setTimeout(resolve, 1200));
-          paymentSuccess = true;
-        }
-      } catch (error) {
-        donationStatus.innerHTML = '<div class="small" style="color:#b91c1c">فشل في الدفع. حاول مرة أخرى.</div>';
-        return;
-      }
-
-      if (paymentSuccess) {
+        // إنشاء الدفع عبر Pi SDK
+        await payWithPi(amount, metadata);
+        
+        // إذا نجح، حدث البيانات المحلية (في الإنتاج، احصل على التأكيد من الخادم)
         activeCampaign.raised += amount;
         donationStatus.innerHTML = `<div style="padding:10px;border-radius:8px;background:linear-gradient(90deg,var(--purple-400),var(--purple-500));color:white">شكراً ${donorNameValue}! تم استلام تبرع ${formatMoney(amount)} — تم التحديث</div>`;
         renderCampaigns(campaigns);
+      } catch (error) {
+        donationStatus.innerHTML = `<div class="small" style="color:#b91c1c">فشل في الدفع: ${error.message}. حاول مرة أخرى.</div>`;
       }
     });
 
