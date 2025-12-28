@@ -7,7 +7,7 @@ exports.handler = async (event) => {
   if (!paymentId || !txid) return { statusCode: 400, body: JSON.stringify({ status: 'error', message: 'Missing data' }) };
   
   // نفس الـ API Key هنا (لازم يكون نفسه بالضبط)
-  const apiKey = 'nxpzhjhnluvqlhjktt025lrlxdvvawxnueojgqoarofk0bqbeww7sfkdkvz15uzt'; // ← غيّر ده بالـ Key الكامل
+  const apiKey = 'dfvu5aiphsqtylgyd9eeilmwgcyaoi4dkj6msyudpso8n5zbmjhrqmykr06tbmxc'; // ← غيّر ده بالـ Key الكامل
   
   try {
     const response = await fetch(`https://api.minepi.com/v2/payments/${paymentId}/complete`, {
