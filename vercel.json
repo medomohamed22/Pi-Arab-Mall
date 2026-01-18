@@ -1,0 +1,12 @@
+{
+  "rewrites": [
+    {
+      "source": "/api/pi/approve",
+      "destination": "/api/approve"
+    },
+    {
+      "source": "/api/pi/complete",
+      "destination": "/api/complete"
+    }
+  ]
+}
