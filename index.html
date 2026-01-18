@@ -3,364 +3,228 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Donate Way - تبرع بعملة Pi Network</title>
+    <title>مدفوعات Pi Network</title>
+    
     <script src="https://sdk.minepi.com/pi-sdk.js"></script>
+
     <style>
+        :root {
+            --pi-purple: #5e2a84;
+            --pi-gold: #ffa500;
+            --bg-color: #f0f2f5;
+        }
+
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #f5f0ff 0%, #e6d9ff 100%);
+            background-color: var(--bg-color);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
             margin: 0;
-            padding: 0;
-            min-height: 100vh;
-            color: #4a148c;
+            color: #333;
         }
 
-        .container {
-            max-width: 1100px;
-            margin: 30px auto;
-            padding: 20px;
-        }
-
-        .header {
+        .payment-card {
+            background: white;
+            padding: 30px;
+            border-radius: 25px;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.1);
+            width: 100%;
+            max-width: 400px;
             text-align: center;
-            margin-bottom: 50px;
         }
 
-        .logo {
-            font-size: 90px;
-            margin-bottom: 10px;
-            color: #7e57c2;
-            animation: float 3s ease-in-out infinite;
+        .pi-logo {
+            width: 70px;
+            height: 70px;
+            background: var(--pi-purple);
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin: 0 auto 20px;
         }
 
-        @keyframes float {
-            0%, 100% { transform: translateY(0); }
-            50% { transform: translateY(-10px); }
-        }
-
-        h1 {
-            font-size: 38px;
-            color: #6a1b9a;
-            margin: 10px 0;
-        }
-
-        p.intro {
-            font-size: 19px;
-            color: #7b1fa2;
-            opacity: 0.9;
-            max-width: 800px;
-            margin: 0 auto 30px;
-        }
-
-        #user {
-            font-size: 23px;
+        .pi-logo span {
+            color: white;
+            font-size: 40px;
             font-weight: bold;
-            color: #4a148c;
-            margin: 20px 0;
         }
 
-        .campaigns {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 30px;
+        h2 {
+            margin: 10px 0;
+            color: var(--pi-purple);
         }
 
-        .campaign-card {
-            background: #fff;
-            border-radius: 24px;
-            box-shadow: 0 10px 30px rgba(126, 87, 194, 0.15);
-            padding: 35px 25px;
-            text-align: center;
-            transition: all 0.4s ease;
-            border: 1px solid rgba(126, 87, 194, 0.1);
-        }
-
-        .campaign-card:hover {
-            transform: translateY(-15px);
-            box-shadow: 0 20px 40px rgba(126, 87, 194, 0.25);
-        }
-
-        .icon {
-            font-size: 60px;
+        .user-info {
+            font-size: 1.1rem;
             margin-bottom: 20px;
-            color: #9c27b0;
+            color: #666;
         }
 
-        .campaign-title {
-            font-size: 26px;
-            color: #6a1b9a;
-            margin-bottom: 15px;
-            font-weight: 600;
+        #username {
+            font-weight: bold;
+            color: var(--pi-purple);
         }
 
-        .campaign-desc {
-            font-size: 16px;
-            color: #7b1fa2;
-            line-height: 1.7;
+        .price-box {
+            background: #fff9e6;
+            border: 2px solid var(--pi-gold);
+            padding: 15px;
+            border-radius: 15px;
             margin-bottom: 25px;
         }
 
-        .donate-options {
-            display: flex;
-            justify-content: center;
-            gap: 12px;
-            margin: 25px 0;
-            flex-wrap: wrap;
+        .amount {
+            font-size: 2.5rem;
+            font-weight: bold;
+            color: #333;
         }
 
-        .amount-btn {
-            background: #ede7f6;
-            border: 2px solid #b39ddb;
-            color: #6a1b9a;
-            padding: 10px 18px;
-            font-size: 15px;
-            border-radius: 50px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            min-width: 75px;
-            font-weight: 500;
+        .currency {
+            font-size: 1.2rem;
+            color: var(--pi-gold);
+            font-weight: bold;
         }
 
-        .amount-btn:hover {
-            background: #b39ddb;
-            color: white;
-            transform: scale(1.1);
-        }
-
-        .amount-btn.selected {
-            background: #7e57c2;
-            color: white;
-            border-color: #7e57c2;
-            box-shadow: 0 5px 15px rgba(126, 87, 194, 0.4);
-        }
-
-        .custom-amount {
-            display: flex;
-            justify-content: center;
-            gap: 12px;
-            margin: 25px 0;
-            flex-wrap: wrap;
-            align-items: center;
-        }
-
-        .custom-input {
-            padding: 12px 20px;
-            font-size: 16px;
-            border-radius: 50px;
-            border: 2px solid #b39ddb;
-            width: 180px;
-            text-align: center;
-            background: white;
-            color: #4a148c;
-        }
-
-        .custom-input::placeholder {
-            color: #9575cd;
-        }
-
-        .custom-input:focus {
-            outline: none;
-            border-color: #7e57c2;
-            box-shadow: 0 0 0 3px rgba(126, 87, 194, 0.2);
-        }
-
-        button.donate {
-            background: linear-gradient(135deg, #9c27b0, #7e57c2);
+        .btn-pay {
+            background: var(--pi-purple);
             color: white;
             border: none;
-            padding: 16px 40px;
-            font-size: 18px;
-            font-weight: bold;
+            padding: 15px 40px;
+            font-size: 1.2rem;
             border-radius: 50px;
             cursor: pointer;
-            box-shadow: 0 10px 25px rgba(126, 87, 194, 0.3);
-            transition: all 0.4s ease;
             width: 100%;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(94, 42, 132, 0.3);
+        }
+
+        .btn-pay:hover:not(:disabled) {
+            background: #4a1f69;
+            transform: translateY(-2px);
+        }
+
+        .btn-pay:disabled {
+            background: #ccc;
+            box-shadow: none;
+            cursor: not-allowed;
+        }
+
+        .status {
             margin-top: 15px;
+            font-size: 0.9rem;
+            min-height: 20px;
         }
 
-        button.donate:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 15px 35px rgba(126, 87, 194, 0.4);
-        }
-
-        .note {
-            text-align: center;
-            font-size: 15px;
-            margin: 60px auto 0;
-            max-width: 90%;
-            color: #6a1b9a;
-            background: rgba(255, 255, 255, 0.7);
-            padding: 20px;
-            border-radius: 20px;
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(126, 87, 194, 0.2);
-        }
-
-        footer {
-            text-align: center;
-            margin-top: 70px;
-            font-size: 14px;
-            color: #7b1fa2;
-            opacity: 0.8;
-        }
-
-        @media (max-width: 768px) {
-            .logo { font-size: 70px; }
-            h1 { font-size: 32px; }
-            p.intro { font-size: 17px; }
-            #user { font-size: 21px; }
-            .campaign-title { font-size: 24px; }
-            .campaign-desc { font-size: 15px; }
-            .custom-input { width: 150px; }
-            button.donate { padding: 14px 30px; font-size: 17px; }
-        }
-
-        @media (max-width: 480px) {
-            .container { padding: 15px; }
-            .donate-options { gap: 8px; }
-            .amount-btn { padding: 8px 14px; font-size: 14px; }
-        }
+        .success { color: green; }
+        .error { color: red; }
     </style>
+</head>
+<body>
+
+    <div class="payment-card">
+        <div class="pi-logo"><span>π</span></div>
+        
+        <h2>بوابة مدفوعات Pi</h2>
+        
+        <div class="user-info">
+            مرحباً، <span id="username">جاري التعرف عليك...</span>
+        </div>
+
+        <div class="price-box">
+            <div class="amount">1.0</div>
+            <div class="currency">Pi Network</div>
+        </div>
+
+        <button id="pay-button" class="btn-pay" disabled>تفعيل الدفع</button>
+        
+        <div id="status-msg" class="status"></div>
+    </div>
+
     <script>
-        Pi.init({ version: "2.0" });
+        const Pi = window.Pi;
+        const statusMsg = document.getElementById('status-msg');
+        const payButton = document.getElementById('pay-button');
 
-        const campaigns = [
-            { id: "food-aid", title: "مساعدة غذائية للأسر الفقيرة", desc: "ساهم في توفير وجبات غذائية للعائلات المحتاجة في المناطق المتضررة.", icon: "🍲" },
-            { id: "education", title: "تعليم الأطفال المحرومين", desc: "دعم تعليم الأطفال في المناطق النائية من خلال توفير الكتب والأدوات المدرسية.", icon: "📚" },
-            { id: "medical", title: "علاج طبي للمرضى", desc: "مساعدة في تغطية تكاليف العلاج للمرضى غير القادرين على تحمل النفقات.", icon: "🏥" },
-            { id: "water", title: "مشاريع مياه نظيفة", desc: "حفر آبار وتوفير مياه شرب نظيفة للقرى المحرومة.", icon: "💧" }
-        ];
+        // 1. تهيئة الـ SDK (Sandbox False للبيئة الحقيقية)
+        Pi.init({ version: "2.0", sandbox: false });
 
-        let selectedAmounts = {};
-        campaigns.forEach(camp => { selectedAmounts[camp.id] = 10; });
-
-        async function authenticate() {
+        // 2. تسجيل الدخول والتعرف على المستخدم
+        async function authenticateUser() {
             try {
                 const scopes = ['username', 'payments'];
-                const authResult = await Pi.authenticate(scopes, onIncompletePaymentFound);
-                document.getElementById('user').innerText = `مرحباً، ${authResult.user.username} 👋`;
+                const auth = await Pi.authenticate(scopes, onIncompletePaymentFound);
+                
+                document.getElementById('username').innerText = auth.user.username;
+                payButton.disabled = false;
+                showStatus("جاهز لإتمام العملية", "success");
             } catch (err) {
                 console.error(err);
-                document.getElementById('user').innerText = "فشل التوثيق، تأكد من Pi Browser";
+                showStatus("فشل الاتصال بـ Pi SDK", "error");
+                document.getElementById('username').innerText = "زائر";
             }
         }
 
-        function onIncompletePaymentFound(payment) { console.log("دفع غير مكتمل:", payment); }
-
-        function selectAmount(campaignId, amount) {
-            selectedAmounts[campaignId] = amount;
-            document.querySelectorAll(`.amount-btn[data-campaign="${campaignId}"]`).forEach(btn => btn.classList.remove('selected'));
-            event.target.classList.add('selected');
-            const customInput = document.getElementById(`custom-${campaignId}`);
-            if (customInput) customInput.value = '';
+        // 3. معالجة المدفوعات العالقة (مهم جداً لسياسة Pi)
+        async function onIncompletePaymentFound(payment) {
+            showStatus("يوجد عملية سابقة معلقة، جاري المعالجة...", "error");
+            // هنا يمكنك إرسال payment.identifier إلى السيرفر لإكمالها
         }
 
-        function useCustomAmount(campaignId) {
-            const input = document.getElementById(`custom-${campaignId}`);
-            const value = parseFloat(input.value.replace(',', '.'));
-            if (isNaN(value) || value <= 0) {
-                alert("أدخل مبلغ صحيح أكبر من صفر (مثل 0.001 أو 1.5)");
-                return;
-            }
-            selectedAmounts[campaignId] = value;
-            document.querySelectorAll(`.amount-btn[data-campaign="${campaignId}"]`).forEach(btn => btn.classList.remove('selected'));
-        }
-
-        async function donateWithPi(campaignId) {
-            const amount = selectedAmounts[campaignId];
-
-            if (!amount || amount <= 0) {
-                alert("اختر أو أدخل مبلغ تبرع صحيح");
-                return;
-            }
-
-            const campaign = campaigns.find(c => c.id === campaignId);
-
+        // 4. وظيفة الدفع عند الضغط على الزر
+        payButton.addEventListener('click', () => {
             const paymentData = {
-                amount: amount,
-                memo: `تبرع بـ ${amount} Pi لـ ${campaign.title} - شكراً على دعمك ❤️`,
-                metadata: { campaign_id: campaign.id, amount: amount }
+                amount: 1.0,
+                memo: "شراء منتج تجريبي", // الوصف الذي يظهر للمستخدم
+                metadata: { orderId: "12345" } 
             };
 
             const callbacks = {
-                onReadyForServerApproval: function(paymentId) {
-                    fetch('/.netlify/functions/approve', {
+                onReadyForServerApproval: (paymentId) => {
+                    showStatus("جاري انتظار موافقة السيرفر...", "");
+                    // استدعاء ملف الـ approve الذي أنشأته في Netlify
+                    fetch('/api/pi/approve', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ paymentId, campaign_id: campaign.id })
-                    })
-                    .then(res => res.json())
-                    .then(data => console.log("Approval:", data))
-                    .catch(err => console.error(err));
+                        body: JSON.stringify({ paymentId })
+                    });
                 },
-                onReadyForServerCompletion: function(paymentId, txid) {
-                    fetch('/.netlify/functions/complete', {
+                onReadyForServerCompletion: (paymentId, txid) => {
+                    showStatus("جاري تأكيد المعاملة على البلوكشين...", "success");
+                    // استدعاء ملف الـ complete الذي أنشأته في Netlify
+                    fetch('/api/pi/complete', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ paymentId, txid, campaign_id: campaign.id })
-                    })
-                    .then(res => res.json())
-                    .then(data => {
-                        console.log("Completion:", data);
-                        // لا نعرض alert من الموقع – نترك الرسالة للمحفظة فقط
-                    })
-                    .catch(err => console.error(err));
+                        body: JSON.stringify({ paymentId, txid })
+                    }).then(res => {
+                        if (res.ok) {
+                            showStatus("تمت عملية الدفع بنجاح! شكرًا لك.", "success");
+                            payButton.innerText = "تم الدفع ✅";
+                            payButton.disabled = true;
+                        }
+                    });
                 },
-                onCancel: () => {}, // لا رسالة
-                onError: (error) => console.error("Pi Error:", error)
+                onCancel: (paymentId) => {
+                    showStatus("تم إلغاء العملية من قبل المستخدم", "error");
+                },
+                onError: (error, payment) => {
+                    showStatus("حدث خطأ أثناء الدفع", "error");
+                    console.error(error);
+                }
             };
 
             Pi.createPayment(paymentData, callbacks);
+        });
+
+        function showStatus(msg, type) {
+            statusMsg.innerText = msg;
+            statusMsg.className = "status " + type;
         }
 
-        window.onload = function() {
-            authenticate();
-            const container = document.getElementById('campaigns');
-            campaigns.forEach(camp => {
-                const card = document.createElement('div');
-                card.className = 'campaign-card';
-                card.innerHTML = `
-                    <div class="icon">${camp.icon}</div>
-                    <h2 class="campaign-title">${camp.title}</h2>
-                    <p class="campaign-desc">${camp.desc}</p>
-                    
-                    <div class="donate-options">
-                        <button class="amount-btn selected" data-campaign="${camp.id}" onclick="selectAmount('${camp.id}', 5)">5 Pi</button>
-                        <button class="amount-btn" data-campaign="${camp.id}" onclick="selectAmount('${camp.id}', 10)">10 Pi</button>
-                        <button class="amount-btn" data-campaign="${camp.id}" onclick="selectAmount('${camp.id}', 50)">50 Pi</button>
-                        <button class="amount-btn" data-campaign="${camp.id}" onclick="selectAmount('${camp.id}', 100)">100 Pi</button>
-                    </div>
-                    
-                    <div class="custom-amount">
-                        <input type="number" step="0.001" min="0.001" id="custom-${camp.id}" class="custom-input" placeholder="مبلغ مخصص">
-                        <button class="amount-btn" onclick="useCustomAmount('${camp.id}')">تفعيل</button>
-                    </div>
-                    
-                    <button class="donate" onclick="donateWithPi('${camp.id}')">تبرع الآن بـ Pi</button>
-                `;
-                container.appendChild(card);
-            });
-        };
+        // بدء التشغيل
+        authenticateUser();
     </script>
-</head>
-<body>
-    <div class="container">
-        <div class="header">
-            <div class="logo">π</div>
-            <h1>Donate Way</h1>
-            <p class="intro">تبرع بعملة Pi Network لدعم الحملات الخيرية والإنسانية</p>
-            <div id="user">جاري التوثيق عبر Pi...</div>
-        </div>
-
-        <div id="campaigns" class="campaigns"></div>
-
-        <div class="note">
-            <strong>ملاحظة:</strong> يمكنك اختيار مبلغ ثابت أو كتابة مبلغ مخصص (مثل 0.001 أو 1.5 أو 999 Pi).<br>
-            الدفع يتم عبر محفظة Pi الرسمية.
-        </div>
-
-        <footer>Donate Way © 2025 - مدعوم بتقنية Pi Network</footer>
-    </div>
 </body>
 </html>
