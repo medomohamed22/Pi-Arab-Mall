@@ -1,38 +1,243 @@
 <!DOCTYPE html>
-<html>
+<html lang="ar" dir="rtl">
 <head>
-  <meta charset="UTF-8" />
-  <title>Pi Test Payment</title>
-  <script src="https://sdk.minepi.com/pi-sdk.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pi Network Mall | سحب آمن</title>
+    <script src="https://sdk.minepi.com/pi-sdk.js"></script>
+    <style>
+        :root {
+            --pi-purple: #6d1e7f;
+            --pi-gold: #ffca28;
+            --bg-dark: #121212;
+            --card-bg: #1e1e1e;
+            --text-main: #ffffff;
+            --text-dim: #b0b0b0;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        .container {
+            width: 90%;
+            max-width: 450px;
+        }
+
+        .card {
+            background: var(--card-bg);
+            padding: 30px;
+            border-radius: 24px;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.5);
+            border: 1px solid #333;
+            text-align: center;
+            animation: fadeIn 0.6s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .logo {
+            width: 70px;
+            height: 70px;
+            background: var(--pi-purple);
+            border-radius: 50%;
+            margin: 0 auto 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 35px;
+            font-weight: bold;
+            color: var(--pi-gold);
+            box-shadow: 0 0 20px rgba(109, 30, 127, 0.4);
+        }
+
+        h2 { margin-bottom: 8px; font-weight: 600; font-size: 22px; }
+        #user-display { color: var(--pi-gold); font-size: 14px; margin-bottom: 25px; min-height: 20px; }
+
+        .input-group { text-align: right; margin-bottom: 15px; }
+        label { display: block; margin-bottom: 8px; font-size: 13px; color: var(--text-dim); padding-right: 5px; }
+
+        input {
+            width: 100%;
+            padding: 14px;
+            border-radius: 12px;
+            border: 1px solid #444;
+            background: #252525;
+            color: white;
+            font-size: 16px;
+            box-sizing: border-box;
+            outline: none;
+            transition: 0.3s;
+        }
+
+        input:focus { border-color: var(--pi-purple); box-shadow: 0 0 8px rgba(109, 30, 127, 0.3); }
+
+        .btn-withdraw {
+            width: 100%;
+            padding: 16px;
+            background: linear-gradient(135deg, var(--pi-purple), #4a148c);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            margin-top: 10px;
+            transition: 0.3s;
+        }
+
+        .btn-withdraw:disabled { background: #333; color: #777; cursor: not-allowed; }
+        
+        #status-box {
+            margin-top: 20px;
+            padding: 12px;
+            border-radius: 10px;
+            font-size: 13px;
+            display: none;
+            line-height: 1.5;
+        }
+
+        .success { background: rgba(76, 175, 80, 0.15); color: #4caf50; border: 1px solid #4caf50; }
+        .error { background: rgba(244, 67, 54, 0.15); color: #f44336; border: 1px solid #f44336; }
+        .info { background: rgba(33, 150, 243, 0.15); color: #2196f3; border: 1px solid #2196f3; }
+
+        .spinner {
+            display: inline-block;
+            width: 18px;
+            height: 18px;
+            border: 2px solid rgba(255,255,255,.3);
+            border-radius: 50%;
+            border-top-color: #fff;
+            animation: spin 0.8s linear infinite;
+            margin-left: 10px;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
 </head>
 <body>
 
-<button onclick="pay()">Pay 1 Pi</button>
+<div class="container">
+    <div class="card">
+        <div class="logo">π</div>
+        <h2>سحب عملات Pi</h2>
+        <div id="user-display">جاري التحميل...</div>
+
+        <div class="input-group">
+            <label>عنوان محفظتك (تلقائي أو أدخله يدوياً)</label>
+            <input type="text" id="walletAddr" placeholder="G..." autocomplete="off">
+        </div>
+
+        <div class="input-group">
+            <label>الكمية المراد سحبها</label>
+            <input type="number" id="amount" placeholder="0.00" step="0.1">
+        </div>
+
+        <button id="withdrawBtn" class="btn-withdraw" disabled>انتظار تسجيل الدخول...</button>
+
+        <div id="status-box"></div>
+    </div>
+</div>
 
 <script>
-Pi.init({ version: "2.0" });
+    const Pi = window.Pi;
+    let currentUser = null;
 
-async function pay() {
-  await Pi.createPayment(
-    {
-      amount: 1,
-      memo: "Test App Payment",
-      metadata: { test: true }
-    },
-    {
-      onReadyForServerApproval: async (paymentId) => {
-        await fetch("/api/pay", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ paymentId })
-        });
-      },
-      onComplete: () => alert("✅ Completed"),
-      onCancel: () => alert("❌ Cancelled"),
-      onError: e => console.error(e)
+    // تهيئة SDK النسخة 2.0
+    Pi.init({ version: "2.0", sandbox: false });
+
+    async function authUser() {
+        const btn = document.getElementById('withdrawBtn');
+        const userDisplay = document.getElementById('user-display');
+        const walletInput = document.getElementById('walletAddr');
+
+        try {
+            // التعديل الجوهري: إضافة 'wallet_address' لحل مشكلة missing_scope
+            const scopes = ['payments', 'username', 'wallet_address'];
+            
+            currentUser = await Pi.authenticate(scopes, (payment) => {
+                console.log("Incomplete payment found", payment);
+            });
+
+            userDisplay.innerText = `مرحباً بك، ${currentUser.user.username}`;
+            
+            // إذا وافق المستخدم، نضع عنوان محفظته تلقائياً في الخانة
+            if (currentUser.user.walletAddress) {
+                walletInput.value = currentUser.user.walletAddress;
+            }
+
+            btn.disabled = false;
+            btn.innerText = "تأكيد عملية السحب";
+            
+        } catch (err) {
+            console.error(err);
+            userDisplay.innerText = "يجب فتح الموقع في Pi Browser والموافقة على الأذونات.";
+            showStatus("خطأ في الاتصال بـ Pi SDK", "error");
+        }
     }
-  );
-}
+
+    function showStatus(msg, type) {
+        const box = document.getElementById('status-box');
+        box.className = type;
+        box.innerHTML = msg;
+        box.style.display = 'block';
+    }
+
+    document.getElementById('withdrawBtn').onclick = async () => {
+        const addr = document.getElementById('walletAddr').value;
+        const amt = document.getElementById('amount').value;
+        const btn = document.getElementById('withdrawBtn');
+
+        if (!addr || !amt) {
+            return showStatus("يرجى إدخال جميع البيانات المطلوبة", "error");
+        }
+
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner"></span> جاري المعالجة...';
+        showStatus("يتم الآن التواصل مع السيرفر الآمن لتنفيذ العملية...", "info");
+
+        try {
+            const response = await fetch('/api/withdraw', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    walletAddress: addr,
+                    amount: amt,
+                    uid: currentUser.user.uid
+                })
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                showStatus(`✅ تمت العملية بنجاح!<br>المعرف: ${result.paymentId}`, "success");
+                btn.innerText = "عملية ناجحة";
+            } else {
+                // عرض رسالة الخطأ القادمة من الباك اند (مثل خطأ الـ API)
+                const errorMsg = typeof result.message === 'object' ? JSON.stringify(result.message) : result.message;
+                showStatus("فشل السحب: " + errorMsg, "error");
+                btn.disabled = false;
+                btn.innerText = "حاول مرة أخرى";
+            }
+        } catch (error) {
+            showStatus("حدث خطأ في الاتصال بالسيرفر، تأكد من إعدادات Vercel", "error");
+            btn.disabled = false;
+            btn.innerText = "إعادة المحاولة";
+        }
+    };
+
+    // بدء عملية المصادقة فور التحميل
+    window.onload = authUser;
 </script>
 
 </body>
