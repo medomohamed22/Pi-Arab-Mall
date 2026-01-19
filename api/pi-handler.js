@@ -2,14 +2,17 @@ const { createClient } = require('@supabase/supabase-js');
 const axios = require('axios');
 const StellarSdk = require('stellar-sdk');
 
-// تهيئة Supabase باستخدام المتغيرات البيئية
+// تفكيك الكلاسات من StellarSdk لتجنب خطأ "Not a constructor"
+const { Server, TransactionBuilder, Keypair, Operation, Asset, Memo } = StellarSdk;
+
+// تهيئة Supabase
 const supabase = createClient(
     'https://xncapmzlwuisupkjlftb.supabase.co', 
     process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
 module.exports = async (req, res) => {
-    // 1. إعدادات CORS للسماح بالاتصال من المتصفح
+    // إعدادات CORS
     res.setHeader('Access-Control-Allow-Credentials', true);
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -22,25 +25,25 @@ module.exports = async (req, res) => {
     const MY_WALLET_SEED = process.env.MY_WALLET_SEED;
 
     try {
-        // --- أولاً: حالة السحب من التطبيق للمستخدم (Withdraw) ---
-        if (action === 'withdraw') {
-            const PI_HORIZON_URL = "https://api.testnet.minepi.com";
-            const server = new StellarSdk.Server(PI_HORIZON_URL);
+        const PI_HORIZON_URL = "https://api.testnet.minepi.com";
+        const server = new Server(PI_HORIZON_URL);
 
-            // أ. إنشاء طلب دفع في Pi API (سيولد Payment ID فريد يستخدم كميمو)
+        // --- الحالة الأولى: سحب من التطبيق للمستخدم ---
+        if (action === 'withdraw') {
             let paymentId;
+            
+            // 1. إنشاء طلب الدفع في Pi API للحصول على الميمو
             try {
                 const piRes = await axios.post('https://api.minepi.com/v2/payments', {
                     payment: {
                         amount: parseFloat(amount),
-                        memo: "Withdrawal Payout",
+                        memo: "Withdrawal Payment",
                         metadata: { type: "withdraw" },
                         uid: uid 
                     }
                 }, { headers: { 'Authorization': `Key ${PI_API_KEY}` } });
                 paymentId = piRes.data.identifier;
             } catch (apiErr) {
-                // إذا وجد معاملة معلقة، نستخدم الـ ID الخاص بها لإكمالها
                 if (apiErr.response?.data?.error === "ongoing_payment_found") {
                     paymentId = apiErr.response.data.payment.identifier;
                 } else {
@@ -48,34 +51,33 @@ module.exports = async (req, res) => {
                 }
             }
 
-            // ب. تنفيذ المعاملة على البلوكشين (Stellar/Pi Network)
-            const sourceKeypair = StellarSdk.Keypair.fromSecret(MY_WALLET_SEED);
+            // 2. بناء المعاملة على البلوكشين
+            const sourceKeypair = Keypair.fromSecret(MY_WALLET_SEED);
             const account = await server.loadAccount(sourceKeypair.publicKey());
 
-            const transaction = new StellarSdk.TransactionBuilder(account, {
-                fee: "250000", // رسوم أولوية عالية لضمان السرعة
+            const transaction = new TransactionBuilder(account, {
+                fee: "500000", // رسوم أولوية عالية جداً
                 networkPassphrase: "Pi Testnet"
             })
-            .addOperation(StellarSdk.Operation.payment({
+            .addOperation(Operation.payment({
                 destination: walletAddress,
-                asset: StellarSdk.Asset.native(),
+                asset: Asset.native(),
                 amount: amount.toString()
             }))
-            .addMemo(StellarSdk.Memo.text(paymentId)) 
-            .setTimeout(180)
+            .addMemo(Memo.text(paymentId)) 
+            .setTimeout(300)
             .build();
 
             transaction.sign(sourceKeypair);
             const result = await server.submitTransaction(transaction);
             const txid = result.hash;
 
-            // ج. تأكيد الإكمال في Pi API وتخزين البيانات في Supabase
+            // 3. تأكيد الإكمال في Pi وتسجيل البيانات في Supabase
             await axios.post(`https://api.minepi.com/v2/payments/${paymentId}/complete`, 
                 { txid: txid }, 
                 { headers: { 'Authorization': `Key ${PI_API_KEY}` } }
-            ).catch(() => console.log("Payment already completed/linked"));
+            );
 
-            // تسجيل العملية في Supabase
             await supabase.from('transactions').insert([{
                 user_uid: uid,
                 amount: parseFloat(amount),
@@ -88,17 +90,15 @@ module.exports = async (req, res) => {
             return res.json({ success: true, message: "تم السحب بنجاح", memo: paymentId, txid: txid });
         }
 
-        // --- ثانياً: حالة تأكيد الإيداع من المستخدم للتطبيق (Complete Deposit) ---
+        // --- الحالة الثانية: تأكيد إيداع المستخدم للتطبيق ---
         if (action === 'complete-deposit') {
             const { paymentId, txid } = paymentData;
 
-            // إكمال الدفع في سجلات Pi
             await axios.post(`https://api.minepi.com/v2/payments/${paymentId}/complete`, 
                 { txid: txid }, 
                 { headers: { 'Authorization': `Key ${PI_API_KEY}` } }
             );
 
-            // تسجيل الإيداع في Supabase
             await supabase.from('transactions').insert([{
                 user_uid: uid,
                 amount: parseFloat(amount),
@@ -108,15 +108,15 @@ module.exports = async (req, res) => {
                 txid: txid
             }]);
 
-            return res.json({ success: true, message: "تم تسجيل الإيداع بنجاح" });
+            return res.json({ success: true, message: "تم تسجيل الإيداع" });
         }
 
     } catch (error) {
-        console.error("Technical Error:", error.response?.data || error.message);
+        console.error("Error Details:", error.response?.data || error.message);
         return res.status(500).json({ 
             success: false, 
-            message: "فشل الإجراء التقني", 
-            error: error.response?.data || error.message 
+            message: error.message,
+            error_details: error.response?.data 
         });
     }
 };
