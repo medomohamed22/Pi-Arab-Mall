@@ -18,29 +18,50 @@ module.exports = async (req, res) => {
         const PI_NETWORK_PASSPHRASE = "Pi Testnet";
         const server = new StellarSdk.Server(PI_HORIZON_URL);
 
-        // 1. توليد معرف فريد جداً باستخدام الوقت بالملي ثانية
-        // هذا السطر هو السر في تغيير الـ Memo في كل مرة
-        const forceUniqueUid = `${uid}_${Date.now()}`; 
-
-        // 2. طلب Payment ID جديد
+        // 1. محاولة إنشاء دفع جديد بـ UID فريد جداً
         let paymentId;
-        const piRes = await axios.post('https://api.minepi.com/v2/payments', {
-            payment: {
-                amount: parseFloat(amount),
-                memo: "New Withdrawal",
-                metadata: { type: "withdraw" },
-                uid: forceUniqueUid 
-            }
-        }, { headers: { 'Authorization': `Key ${PI_API_KEY}` } });
-        
-        paymentId = piRes.data.identifier;
+        const forceUniqueUid = `user_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
 
-        // 3. بناء المعاملة على البلوكشين
+        try {
+            const piRes = await axios.post('https://api.minepi.com/v2/payments', {
+                payment: {
+                    amount: parseFloat(amount),
+                    memo: "Withdrawal",
+                    metadata: { type: "withdraw" },
+                    uid: forceUniqueUid
+                }
+            }, { headers: { 'Authorization': `Key ${PI_API_KEY}` } });
+            paymentId = piRes.data.identifier;
+        } catch (apiErr) {
+            // --- الذكاء الاصطناعي هنا: إذا وجد عملية معلقة، سيغلقها فوراً ---
+            if (apiErr.response?.data?.error === "ongoing_payment_found") {
+                const ongoing = apiErr.response.data.payment;
+                console.log("وجدنا عملية معلقة، جاري إغلاقها إجبارياً...");
+                
+                // محاولة إغلاق المعاملة المعلقة باستخدام الـ TXID الموجود في سجلات Pi
+                if (ongoing.transaction?.txid) {
+                    await axios.post(`https://api.minepi.com/v2/payments/${ongoing.identifier}/complete`, 
+                        { txid: ongoing.transaction.txid }, 
+                        { headers: { 'Authorization': `Key ${PI_API_KEY}` } }
+                    ).catch(() => console.log("فشل الإغلاق التلقائي، ربما تحتاج المعاملة لوقت أطول."));
+                }
+                
+                // بعد محاولة الإغلاق، نطلب من المستخدم المحاولة مرة أخرى فوراً
+                return res.status(400).json({
+                    success: false,
+                    message: "تم تنظيف المعاملة المعلقة بنجاح. يرجى الضغط على زر السحب مرة أخرى الآن."
+                });
+            } else {
+                throw apiErr;
+            }
+        }
+
+        // 2. بناء المعاملة الجديدة (لن نصل هنا إلا إذا كان النظام نظيفاً)
         const sourceKeypair = StellarSdk.Keypair.fromSecret(MY_WALLET_SEED);
         const account = await server.loadAccount(sourceKeypair.publicKey());
 
         const transaction = new StellarSdk.TransactionBuilder(account, {
-            fee: "100000", // رسوم أولوية
+            fee: "100000",
             networkPassphrase: PI_NETWORK_PASSPHRASE
         })
         .addOperation(StellarSdk.Operation.payment({
@@ -48,22 +69,22 @@ module.exports = async (req, res) => {
             asset: StellarSdk.Asset.native(),
             amount: amount.toString()
         }))
-        .addMemo(StellarSdk.Memo.text(paymentId)) // ميمو جديد تماماً
+        .addMemo(StellarSdk.Memo.text(paymentId)) 
         .setTimeout(180)
         .build();
 
         transaction.sign(sourceKeypair);
         const result = await server.submitTransaction(transaction);
 
-        // 4. تأكيد العملية فوراً
+        // 3. تأكيد الإكمال
         await axios.post(`https://api.minepi.com/v2/payments/${paymentId}/complete`, 
             { txid: result.hash }, 
             { headers: { 'Authorization': `Key ${PI_API_KEY}` } }
-        ).catch(e => console.log("Note: Payment already completed or linked."));
+        );
 
         return res.json({
             success: true,
-            message: "✅ تم السحب بنجاح! الـ Memo الجديد هو: " + paymentId,
+            message: "✅ تم السحب بنجاح بـ Memo فريد: " + paymentId,
             txid: result.hash
         });
 
@@ -71,7 +92,7 @@ module.exports = async (req, res) => {
         console.error("Technical Error:", error.response?.data || error.message);
         return res.status(500).json({ 
             success: false, 
-            message: "حدث خطأ. يرجى المحاولة مرة أخرى." 
+            message: "حدث خطأ. حاول مرة أخرى خلال دقيقة." 
         });
     }
 };
