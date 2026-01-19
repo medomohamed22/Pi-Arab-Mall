@@ -1,5 +1,6 @@
 const axios = require('axios');
 const StellarSdk = require('stellar-sdk');
+const crypto = require('crypto');
 
 module.exports = async (req, res) => {
     res.setHeader('Access-Control-Allow-Credentials', true);
@@ -7,28 +8,52 @@ module.exports = async (req, res) => {
     res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
-    if (req.method === 'OPTIONS') return res.status(200).end();
+    if (req.method === 'OPTIONS') {
+        return res.status(200).end();
+    }
 
-    const { walletAddress, amount, uid } = req.body;
+    const { walletAddress, amount } = req.body;
+
     const PI_API_KEY = process.env.PI_API_KEY;
     const MY_WALLET_SEED = process.env.MY_WALLET_SEED;
+
+    if (!walletAddress || !amount) {
+        return res.status(400).json({
+            success: false,
+            message: "walletAddress و amount مطلوبين"
+        });
+    }
 
     try {
         const PI_HORIZON_URL = "https://api.testnet.minepi.com";
         const PI_NETWORK_PASSPHRASE = "Pi Testnet";
         const server = new StellarSdk.Server(PI_HORIZON_URL);
 
-        // 1. الحصول على Payment ID
+        // 🔹 UID فريد لكل معاملة
+        const uniqueUid = `user_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`;
+
+        // 1️⃣ إنشاء Payment ID من Pi API
         let paymentId;
         try {
-            const piRes = await axios.post('https://api.minepi.com/v2/payments', {
-                payment: {
-                    amount: parseFloat(amount),
-                    memo: "Withdrawal Payment",
-                    metadata: { type: "withdraw" },
-                    uid: uid
+            const piRes = await axios.post(
+                'https://api.minepi.com/v2/payments',
+                {
+                    payment: {
+                        amount: parseFloat(amount),
+                        memo: "Withdrawal Payment",
+                        metadata: {
+                            type: "withdraw",
+                            uid: uniqueUid
+                        },
+                        uid: uniqueUid
+                    }
+                },
+                {
+                    headers: {
+                        Authorization: `Key ${PI_API_KEY}`
+                    }
                 }
-            }, { headers: { 'Authorization': `Key ${PI_API_KEY}` } });
+            );
             paymentId = piRes.data.identifier;
         } catch (apiErr) {
             if (apiErr.response?.data?.error === "ongoing_payment_found") {
@@ -38,46 +63,56 @@ module.exports = async (req, res) => {
             }
         }
 
-        // 2. تنفيذ المعاملة على البلوكشين
+        // 2️⃣ تنفيذ المعاملة على بلوكشين Pi (Stellar)
         const sourceKeypair = StellarSdk.Keypair.fromSecret(MY_WALLET_SEED);
         const account = await server.loadAccount(sourceKeypair.publicKey());
 
+        const memoText = `PI-${paymentId.slice(0, 24)}`; // آمن ≤ 28 حرف
+
         const transaction = new StellarSdk.TransactionBuilder(account, {
-            fee: "250000", // رسوم أولوية لضمان السرعة
+            fee: "250000",
             networkPassphrase: PI_NETWORK_PASSPHRASE
         })
-        .addOperation(StellarSdk.Operation.payment({
-            destination: walletAddress,
-            asset: StellarSdk.Asset.native(),
-            amount: amount.toString()
-        }))
-        .addMemo(StellarSdk.Memo.text(paymentId)) 
-        .setTimeout(180)
-        .build();
+            .addOperation(
+                StellarSdk.Operation.payment({
+                    destination: walletAddress,
+                    asset: StellarSdk.Asset.native(),
+                    amount: amount.toString()
+                })
+            )
+            .addMemo(StellarSdk.Memo.text(memoText))
+            .setTimeout(180)
+            .build();
 
         transaction.sign(sourceKeypair);
         const result = await server.submitTransaction(transaction);
         const txid = result.hash;
 
-        // 3. تأكيد الإكمال (مع تجاهل الأخطاء إذا كانت المعاملة مرتبطة فعلاً)
+        // 3️⃣ تأكيد الإكمال مع Pi API
         try {
-            await axios.post(`https://api.minepi.com/v2/payments/${paymentId}/complete`, 
-                { txid: txid }, 
-                { headers: { 'Authorization': `Key ${PI_API_KEY}` } }
+            await axios.post(
+                `https://api.minepi.com/v2/payments/${paymentId}/complete`,
+                { txid },
+                {
+                    headers: {
+                        Authorization: `Key ${PI_API_KEY}`
+                    }
+                }
             );
         } catch (completeErr) {
-            // إذا كان الخطأ أن العملية مرتبطة أصلاً، فهذا نجاح وليس فشل
             const vErr = completeErr.response?.data?.verification_error;
             if (vErr !== "payment_already_linked_with_a_tx") {
-                console.log("تنبيه: خطأ بسيط في التأكيد لكن المعاملة تمت في البلوكشين.");
+                console.warn("تنبيه: خطأ في تأكيد Pi لكن المعاملة مسجلة على البلوكشين");
             }
         }
 
-        // --- دائماً نرجع نجاح طالما وصلت لـ txid ---
+        // ✅ نجاح نهائي
         return res.json({
             success: true,
-            message: "✅ تمت العملية بنجاح ووصلت المحفظة!",
-            memo_used: paymentId,
+            message: "✅ تمت العملية بنجاح",
+            uid: uniqueUid,
+            payment_id: paymentId,
+            memo_used: memoText,
             transaction_hash: txid
         });
 
@@ -85,7 +120,7 @@ module.exports = async (req, res) => {
         console.error("Technical Error:", error.response?.data || error.message);
         return res.status(500).json({
             success: false,
-            message: "⚠️ حدث خطأ في النظام، يرجى التحقق من محفظتك."
+            message: "⚠️ حدث خطأ في النظام"
         });
     }
 };
