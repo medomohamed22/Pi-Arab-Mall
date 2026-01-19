@@ -1,5 +1,8 @@
 {
   "rewrites": [
-    { "source": "/api/withdraw", "destination": "/api/withdraw.js" }
+    {
+      "source": "/process-payment",
+      "destination": "/api/pi-handler"
+    }
   ]
 }
