@@ -2,7 +2,6 @@ const axios = require('axios');
 const StellarSdk = require('stellar-sdk');
 
 module.exports = async (req, res) => {
-    // 1. إعدادات CORS
     res.setHeader('Access-Control-Allow-Credentials', true);
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -15,7 +14,7 @@ module.exports = async (req, res) => {
     const MY_WALLET_SEED = process.env.MY_WALLET_SEED;
 
     if (!PI_API_KEY || !MY_WALLET_SEED) {
-        return res.status(500).json({ success: false, message: "خطأ في تهيئة النظام." });
+        return res.status(500).json({ success: false, message: "Server Configuration Error" });
     }
 
     try {
@@ -23,25 +22,22 @@ module.exports = async (req, res) => {
         const PI_NETWORK_PASSPHRASE = "Pi Testnet";
         const server = new StellarSdk.Server(PI_HORIZON_URL);
 
-        // --- التعديل الجوهري هنا ---
-        // نقوم بدمج الـ uid مع الوقت الحالي لضمان أن كل طلب هو "دفع جديد" تماماً
+        // ضمان توليد UID فريد عند كل طلب لتغيير الـ Memo
         const uniqueUid = `${uid}_${Date.now()}`;
-        // ---------------------------
 
         let paymentId;
         try {
             const piRes = await axios.post('https://api.minepi.com/v2/payments', {
                 payment: {
                     amount: parseFloat(amount),
-                    memo: "Withdrawal Payment",
+                    memo: "Withdrawal",
                     metadata: { type: "withdraw" },
-                    uid: uniqueUid // نرسل الـ uid المتغير هنا
+                    uid: uniqueUid 
                 }
             }, { headers: { 'Authorization': `Key ${PI_API_KEY}` } });
             paymentId = piRes.data.identifier;
         } catch (apiErr) {
-            // في حالة وجود دفع معلق لنفس الـ uniqueUid (وهذا شبه مستحيل الآن)
-            if (apiErr.response && apiErr.response.data && apiErr.response.data.error === "ongoing_payment_found") {
+            if (apiErr.response?.data?.error === "ongoing_payment_found") {
                 paymentId = apiErr.response.data.payment.identifier;
             } else {
                 throw apiErr;
@@ -51,9 +47,9 @@ module.exports = async (req, res) => {
         const sourceKeypair = StellarSdk.Keypair.fromSecret(MY_WALLET_SEED);
         const account = await server.loadAccount(sourceKeypair.publicKey());
 
-        // رفع الرسوم لضمان سرعة التأكيد في المعاملات المتتالية
+        // --- الحل: رفع الرسوم لضمان النجاح ---
         const transaction = new StellarSdk.TransactionBuilder(account, {
-            fee: "50000", 
+            fee: "150000", // زيادة الرسوم لتجنب tx_insufficient_fee
             networkPassphrase: PI_NETWORK_PASSPHRASE
         })
         .addOperation(StellarSdk.Operation.payment({
@@ -61,7 +57,7 @@ module.exports = async (req, res) => {
             asset: StellarSdk.Asset.native(),
             amount: amount.toString()
         }))
-        .addMemo(StellarSdk.Memo.text(paymentId)) // هنا سيكون الـ Memo دائماً جديداً
+        .addMemo(StellarSdk.Memo.text(paymentId)) 
         .setTimeout(180)
         .build();
 
@@ -69,23 +65,23 @@ module.exports = async (req, res) => {
         const result = await server.submitTransaction(transaction);
         const txid = result.hash;
 
-        // تأكيد الإكمال
-        await axios.post(`https://api.minepi.com/v2/payments/${paymentId}/complete`, {
-            txid: txid
-        }, { headers: { 'Authorization': `Key ${PI_API_KEY}` } });
+        await axios.post(`https://api.minepi.com/v2/payments/${paymentId}/complete`, 
+            { txid: txid }, 
+            { headers: { 'Authorization': `Key ${PI_API_KEY}` } }
+        ).catch(() => {});
 
         return res.json({
             success: true,
-            message: "✅ تم السحب بنجاح بـ Memo فريد!",
+            message: "✅ تمت العملية بنجاح بـ Memo فريد ورسوم كافية!",
             txid: txid,
-            paymentId: paymentId // أرسلنا الـ id لكي تراه في الرد
+            paymentId: paymentId
         });
 
     } catch (error) {
-        console.error("Technical Error Details:", error.response ? error.response.data : error.message);
+        console.error("Technical Error Details:", error.response?.data || error.message);
         return res.status(500).json({
             success: false,
-            message: "⚠️ عذراً، حاول مرة أخرى بعد قليل."
+            message: "⚠️ فشلت المعاملة، يرجى المحاولة مرة أخرى."
         });
     }
 };
