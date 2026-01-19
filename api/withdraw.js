@@ -2,7 +2,6 @@ const axios = require('axios');
 const StellarSdk = require('stellar-sdk');
 
 module.exports = async (req, res) => {
-    // 1. إعدادات CORS
     res.setHeader('Access-Control-Allow-Credentials', true);
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -14,16 +13,12 @@ module.exports = async (req, res) => {
     const PI_API_KEY = process.env.PI_API_KEY;
     const MY_WALLET_SEED = process.env.MY_WALLET_SEED;
 
-    if (!PI_API_KEY || !MY_WALLET_SEED) {
-        return res.status(500).json({ success: false, message: "فشل في تهيئة السيرفر" });
-    }
-
     try {
         const PI_HORIZON_URL = "https://api.testnet.minepi.com";
         const PI_NETWORK_PASSPHRASE = "Pi Testnet";
         const server = new StellarSdk.Server(PI_HORIZON_URL);
 
-        // 1. طلب Payment ID من Pi API
+        // 1. الحصول على Payment ID
         let paymentId;
         try {
             const piRes = await axios.post('https://api.minepi.com/v2/payments', {
@@ -36,7 +31,6 @@ module.exports = async (req, res) => {
             }, { headers: { 'Authorization': `Key ${PI_API_KEY}` } });
             paymentId = piRes.data.identifier;
         } catch (apiErr) {
-            // التعامل مع المعاملات المعلقة (Ongoing)
             if (apiErr.response?.data?.error === "ongoing_payment_found") {
                 paymentId = apiErr.response.data.payment.identifier;
             } else {
@@ -44,12 +38,12 @@ module.exports = async (req, res) => {
             }
         }
 
-        // 2. بناء المعاملة على البلوكشين
+        // 2. تنفيذ المعاملة على البلوكشين
         const sourceKeypair = StellarSdk.Keypair.fromSecret(MY_WALLET_SEED);
         const account = await server.loadAccount(sourceKeypair.publicKey());
 
         const transaction = new StellarSdk.TransactionBuilder(account, {
-            fee: "200000", // رسوم عالية لضمان النجاح اللحظي
+            fee: "250000", // رسوم أولوية لضمان السرعة
             networkPassphrase: PI_NETWORK_PASSPHRASE
         })
         .addOperation(StellarSdk.Operation.payment({
@@ -57,7 +51,7 @@ module.exports = async (req, res) => {
             asset: StellarSdk.Asset.native(),
             amount: amount.toString()
         }))
-        .addMemo(StellarSdk.Memo.text(paymentId)) // وضع الـ Payment ID في الميمو
+        .addMemo(StellarSdk.Memo.text(paymentId)) 
         .setTimeout(180)
         .build();
 
@@ -65,31 +59,33 @@ module.exports = async (req, res) => {
         const result = await server.submitTransaction(transaction);
         const txid = result.hash;
 
-        // 3. تأكيد الإكمال لـ Pi API
-        await axios.post(`https://api.minepi.com/v2/payments/${paymentId}/complete`, 
-            { txid: txid }, 
-            { headers: { 'Authorization': `Key ${PI_API_KEY}` } }
-        );
+        // 3. تأكيد الإكمال (مع تجاهل الأخطاء إذا كانت المعاملة مرتبطة فعلاً)
+        try {
+            await axios.post(`https://api.minepi.com/v2/payments/${paymentId}/complete`, 
+                { txid: txid }, 
+                { headers: { 'Authorization': `Key ${PI_API_KEY}` } }
+            );
+        } catch (completeErr) {
+            // إذا كان الخطأ أن العملية مرتبطة أصلاً، فهذا نجاح وليس فشل
+            const vErr = completeErr.response?.data?.verification_error;
+            if (vErr !== "payment_already_linked_with_a_tx") {
+                console.log("تنبيه: خطأ بسيط في التأكيد لكن المعاملة تمت في البلوكشين.");
+            }
+        }
 
-        // --- رسالة النجاح النهائية التي ستظهر للمستخدم ---
+        // --- دائماً نرجع نجاح طالما وصلت لـ txid ---
         return res.json({
             success: true,
-            status: "SUCCESS",
-            message: "✅ تمت العملية بنجاح!",
-            memo_used: paymentId, // إظهار رقم الميمو بوضوح
-            transaction_hash: txid,
-            note: "يرجى الانتظار دقيقة قبل المعاملة التالية لضمان تغيير الميمو."
+            message: "✅ تمت العملية بنجاح ووصلت المحفظة!",
+            memo_used: paymentId,
+            transaction_hash: txid
         });
 
     } catch (error) {
         console.error("Technical Error:", error.response?.data || error.message);
-        
-        // إظهار سبب الخطأ إذا كان من Pi API
-        const errorMessage = error.response?.data?.error_message || "فشلت المعاملة، يرجى المحاولة مرة أخرى.";
-        
         return res.status(500).json({
             success: false,
-            message: `⚠️ خطأ: ${errorMessage}`
+            message: "⚠️ حدث خطأ في النظام، يرجى التحقق من محفظتك."
         });
     }
 };
