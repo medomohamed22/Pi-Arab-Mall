@@ -9,34 +9,29 @@ module.exports = async (req, res) => {
 
     if (req.method === 'OPTIONS') return res.status(200).end();
 
-    const { walletAddress, amount, uid } = req.body;
+    const { walletAddress, amount, uid } = req.body; // نستخدم الـ uid الأصلي القادم من Pi SDK
     const PI_API_KEY = process.env.PI_API_KEY;
     const MY_WALLET_SEED = process.env.MY_WALLET_SEED;
-
-    if (!PI_API_KEY || !MY_WALLET_SEED) {
-        return res.status(500).json({ success: false, message: "Server Configuration Error" });
-    }
 
     try {
         const PI_HORIZON_URL = "https://api.testnet.minepi.com";
         const PI_NETWORK_PASSPHRASE = "Pi Testnet";
         const server = new StellarSdk.Server(PI_HORIZON_URL);
 
-        // ضمان توليد UID فريد عند كل طلب لتغيير الـ Memo
-        const uniqueUid = `${uid}_${Date.now()}`;
-
+        // 1. طلب Payment من Pi API (باستخدام الـ UID الحقيقي للمستخدم)
         let paymentId;
         try {
             const piRes = await axios.post('https://api.minepi.com/v2/payments', {
                 payment: {
                     amount: parseFloat(amount),
-                    memo: "Withdrawal",
+                    memo: "Official Withdrawal",
                     metadata: { type: "withdraw" },
-                    uid: uniqueUid 
+                    uid: uid // الـ UID الحقيقي بدون إضافات
                 }
             }, { headers: { 'Authorization': `Key ${PI_API_KEY}` } });
             paymentId = piRes.data.identifier;
         } catch (apiErr) {
+            // إذا وجد معاملة معلقة، نأخذ الـ ID الخاص بها لننهيها ونغير الـ Memo في المرة القادمة
             if (apiErr.response?.data?.error === "ongoing_payment_found") {
                 paymentId = apiErr.response.data.payment.identifier;
             } else {
@@ -44,12 +39,12 @@ module.exports = async (req, res) => {
             }
         }
 
+        // 2. بناء المعاملة برسوم عالية جداً (لضمان السرعة القصوى)
         const sourceKeypair = StellarSdk.Keypair.fromSecret(MY_WALLET_SEED);
         const account = await server.loadAccount(sourceKeypair.publicKey());
 
-        // --- الحل: رفع الرسوم لضمان النجاح ---
         const transaction = new StellarSdk.TransactionBuilder(account, {
-            fee: "150000", // زيادة الرسوم لتجنب tx_insufficient_fee
+            fee: "200000", // رفعنا الرسوم أكثر لضمان التأكيد اللحظي
             networkPassphrase: PI_NETWORK_PASSPHRASE
         })
         .addOperation(StellarSdk.Operation.payment({
@@ -65,23 +60,21 @@ module.exports = async (req, res) => {
         const result = await server.submitTransaction(transaction);
         const txid = result.hash;
 
+        // 3. تأكيد الإكمال (خطوة حاسمة لفتح الطريق للمعاملة التالية بـ Memo جديد)
         await axios.post(`https://api.minepi.com/v2/payments/${paymentId}/complete`, 
             { txid: txid }, 
             { headers: { 'Authorization': `Key ${PI_API_KEY}` } }
-        ).catch(() => {});
+        );
 
         return res.json({
             success: true,
-            message: "✅ تمت العملية بنجاح بـ Memo فريد ورسوم كافية!",
+            message: "✅ تم السحب! انتظر 10 ثوانٍ قبل السحب القادم لضمان تغيير الـ Memo.",
             txid: txid,
             paymentId: paymentId
         });
 
     } catch (error) {
-        console.error("Technical Error Details:", error.response?.data || error.message);
-        return res.status(500).json({
-            success: false,
-            message: "⚠️ فشلت المعاملة، يرجى المحاولة مرة أخرى."
-        });
+        console.error("Technical Error:", error.response?.data || error.message);
+        return res.status(500).json({ success: false, message: "فشلت العملية، حاول مرة أخرى." });
     }
 };
