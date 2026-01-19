@@ -3,296 +3,273 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pi Ecosystem Hub</title>
+    <title>Pi Ecosystem Wallet</title>
     <script src="https://sdk.minepi.com/pi-sdk.js"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/c""ss/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     
     <style>
         :root {
-            --primary: #673ab7;
-            --secondary: #ff9800;
-            --bg: #f0f2f5;
-            --text: #333;
-            --card-bg: rgba(255, 255, 255, 0.95);
+            --primary-color: #673ab7;
+            --secondary-color: #ff9800;
+            --bg-color: #f4f7f6;
+            --card-shadow: 0 10px 25px rgba(0,0,0,0.1);
         }
 
-        * { box-sizing: border-box; transition: all 0.3s ease; }
+        * { box-sizing: border-box; transition: 0.3s; }
 
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #673ab7 0%, #311b92 100%);
+            font-family: 'Segoe UI', Tahoma, sans-serif;
+            background-color: var(--bg-color);
             margin: 0;
             display: flex;
-            align-items: center;
             justify-content: center;
+            align-items: center;
             min-height: 100vh;
-            color: var(--text);
         }
 
-        .app-container {
-            width: 95%;
-            max-width: 450px;
-            background: var(--card-bg);
-            border-radius: 25px;
-            padding: 25px;
-            box-shadow: 0 15px 35px rgba(0,0,0,0.2);
+        .container {
+            width: 90%;
+            max-width: 420px;
+            background: white;
+            border-radius: 24px;
+            padding: 30px;
+            box-shadow: var(--card-shadow);
             text-align: center;
-            display: none; /* مخفي حتى تسجيل الدخول */
         }
 
-        .login-container {
-            background: var(--card-bg);
-            padding: 40px 20px;
-            border-radius: 25px;
-            text-align: center;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
-        }
+        /* شاشة تسجيل الدخول */
+        #login-section i { font-size: 60px; color: var(--secondary-color); margin-bottom: 20px; }
+        
+        /* شاشة التطبيق الرئيسية */
+        #main-section { display: none; }
 
-        .logo {
-            font-size: 50px;
-            color: var(--secondary);
-            margin-bottom: 10px;
-        }
-
-        .user-profile {
-            background: #eee;
-            padding: 15px;
-            border-radius: 15px;
-            margin-bottom: 20px;
+        .user-card {
             display: flex;
             align-items: center;
-            gap: 15px;
+            background: #f9f9f9;
+            padding: 12px;
+            border-radius: 16px;
+            margin-bottom: 20px;
+            border: 1px solid #eee;
         }
 
-        .user-avatar {
-            width: 50px;
-            height: 50px;
-            background: var(--primary);
+        .avatar {
+            width: 45px;
+            height: 45px;
+            background: var(--primary-color);
             color: white;
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
             font-weight: bold;
+            font-size: 20px;
+            margin-left: 12px;
         }
 
-        h2 { margin: 10px 0; color: var(--primary); }
-
-        .balance-card {
-            background: linear-gradient(to right, #673ab7, #9575cd);
+        .balance-display {
+            background: linear-gradient(45deg, var(--primary-color), #9575cd);
             color: white;
-            padding: 20px;
-            border-radius: 15px;
+            padding: 25px;
+            border-radius: 20px;
             margin-bottom: 25px;
         }
 
-        .balance-amount { font-size: 28px; font-weight: bold; }
+        .balance-display h2 { margin: 5px 0; font-size: 32px; }
 
-        .action-group {
-            background: #fff;
-            border: 1px solid #ddd;
-            padding: 15px;
-            border-radius: 15px;
-            margin-bottom: 15px;
-        }
+        .input-group { text-align: right; margin-bottom: 15px; }
+        .input-group label { font-size: 14px; font-weight: bold; color: #666; display: block; margin-bottom: 5px; }
 
         input {
             width: 100%;
-            padding: 12px;
-            margin: 10px 0;
+            padding: 14px;
             border: 2px solid #eee;
-            border-radius: 10px;
-            outline: none;
+            border-radius: 12px;
+            font-size: 18px;
             text-align: center;
-            font-size: 16px;
+            outline: none;
         }
 
-        input:focus { border-color: var(--primary); }
+        input:focus { border-color: var(--primary-color); }
 
         button {
             width: 100%;
-            padding: 14px;
+            padding: 15px;
             border: none;
-            border-radius: 10px;
+            border-radius: 12px;
             font-size: 16px;
             font-weight: bold;
             cursor: pointer;
+            margin-top: 10px;
             display: flex;
             align-items: center;
             justify-content: center;
             gap: 10px;
         }
 
-        .btn-primary { background: var(--primary); color: white; }
-        .btn-secondary { background: var(--secondary); color: white; }
-        .btn-login { background: #000; color: #fff; margin-top: 20px; }
+        .btn-login { background: #333; color: white; }
+        .btn-deposit { background: var(--primary-color); color: white; }
+        .btn-withdraw { background: var(--secondary-color); color: white; }
 
-        button:active { transform: scale(0.98); }
+        button:active { transform: scale(0.97); }
 
-        #status-msg {
-            margin-top: 15px;
+        #status-bar {
+            margin-top: 20px;
+            font-size: 14px;
             padding: 10px;
             border-radius: 8px;
-            font-size: 14px;
             min-height: 40px;
         }
 
-        .loader {
-            border: 3px solid #f3f3f3;
-            border-top: 3px solid var(--primary);
-            border-radius: 50%;
-            width: 20px;
-            height: 20px;
-            animation: spin 1s linear infinite;
-            display: none;
-        }
-
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .loading-dots:after { content: '...'; animation: dots 1.5s infinite; }
+        @keyframes dots { 0% { content: '.'; } 33% { content: '..'; } 66% { content: '...'; } }
     </style>
 </head>
 <body>
 
-    <div id="login-screen" class="login-container">
-        <i class="fab fa-pi-network logo"></i>
-        <h2>مرحباً بك في Pi Hub</h2>
-        <p>يرجى تسجيل الدخول عبر شبكة Pi للمتابعة</p>
+<div class="container">
+    <div id="login-section">
+        <i class="fab fa-pi-network"></i>
+        <h1>Pi Hub</h1>
+        <p>مرحباً بك! سجل دخولك للمتابعة</p>
         <button class="btn-login" onclick="login()">
-            <i class="fas fa-sign-in-alt"></i> تسجيل الدخول عبر Pi
+            <i class="fas fa-sign-in-alt"></i> دخول عبر Pi Network
         </button>
     </div>
 
-    <div id="app-screen" class="app-container">
-        <div class="user-profile">
-            <div class="user-avatar" id="user-initial">U</div>
+    <div id="main-section">
+        <div class="user-card">
+            <div class="avatar" id="user-icon">?</div>
             <div style="text-align: right;">
-                <div id="username" style="font-weight: bold;">جاري التحميل...</div>
-                <div style="font-size: 12px; color: #777;">مستخدم موثق</div>
+                <div id="user-display-name" style="font-weight: bold;">@Username</div>
+                <div style="font-size: 11px; color: #888;">حساب موثق</div>
             </div>
         </div>
 
-        <div class="balance-card">
-            <div>رصيدك الحالي</div>
-            <div class="balance-amount"><span id="balance">0.00</span> Pi</div>
+        <div class="balance-display">
+            <small>الرصيد المتاح للتجربة</small>
+            <h2 id="balance-val">10.00 Pi</h2>
         </div>
 
-        <div class="action-group">
-            <h3 style="margin: 0 0 10px 0;"><i class="fas fa-shopping-cart"></i> دفع للتطبيق</h3>
-            <input type="number" id="depositAmount" value="1.0" step="0.1">
-            <button class="btn-primary" onclick="handleDeposit()">
-                إرسال Pi <div class="loader" id="loader-dep"></div>
+        <div class="input-group">
+            <label>إرسال Pi للتطبيق (إيداع)</label>
+            <input type="number" id="dep-amount" value="1.0" step="0.1">
+            <button class="btn-deposit" onclick="handleDeposit()">
+                <i class="fas fa-arrow-up"></i> إرسال الآن
             </button>
         </div>
 
-        <div class="action-group">
-            <h3 style="margin: 0 0 10px 0;"><i class="fas fa-wallet"></i> سحب للمحفظة</h3>
-            <input type="number" id="withdrawAmount" value="0.1" step="0.1">
-            <button class="btn-secondary" onclick="handleWithdraw()">
-                سحب الآن <div class="loader" id="loader-with"></div>
+        <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
+
+        <div class="input-group">
+            <label>سحب Pi للمحفظة</label>
+            <input type="number" id="with-amount" value="0.1" step="0.1">
+            <button class="btn-withdraw" onclick="handleWithdraw()">
+                <i class="fas fa-wallet"></i> سحب فوري
             </button>
         </div>
 
-        <div id="status-msg"></div>
+        <div id="status-bar"></div>
     </div>
+</div>
 
-    <script>
-        const Pi = window.Pi;
-        Pi.init({ version: "2.0", sandbox: false });
+<script>
+    const Pi = window.Pi;
+    Pi.init({ version: "2.0", sandbox: false });
 
-        const API_URL = "https://pi-arab-mall.vercel.app/api/pi-handler";
-        let currentUser = null;
+    // الرابط المختصر المعرف في vercel.json
+    const API_ENDPOINT = "/process-payment"; 
+    let currentUser = null;
 
-        // 1. وظيفة تسجيل الدخول
-        async function login() {
-            try {
-                const scopes = ['payments', 'username'];
-                const auth = await Pi.authenticate(scopes, onIncompletePaymentFound);
-                
-                currentUser = auth.user;
-                document.getElementById('username').innerText = "@" + currentUser.username;
-                document.getElementById('user-initial').innerText = currentUser.username.charAt(0).toUpperCase();
-                
-                document.getElementById('login-screen').style.display = 'none';
-                document.getElementById('app-screen').style.display = 'block';
-                
-                showStatus("تم تسجيل الدخول بنجاح", "success");
-            } catch (err) {
-                showStatus("فشل تسجيل الدخول: " + err.message, "error");
-            }
-        }
-
-        function onIncompletePaymentFound(payment) {
-            // منطق التعامل مع الدفعات المعلقة كما شرحنا سابقاً
-        }
-
-        // 2. معالجة الإيداع (من المستخدم للتطبيق)
-        async function handleDeposit() {
-            const amount = document.getElementById('depositAmount').value;
-            toggleLoader('loader-dep', true);
+    // دالة تسجيل الدخول
+    async function login() {
+        try {
+            updateStatus("جاري التحقق...", "#666");
+            const auth = await Pi.authenticate(['payments', 'username'], onIncompletePayment);
             
-            try {
-                const payment = await Pi.createPayment({
-                    amount: parseFloat(amount),
-                    memo: "شراء رصيد",
-                    metadata: { type: "deposit" }
-                }, {
-                    onReadyForServerApproval: (id) => showStatus("في انتظار موافقة السيرفر..."),
-                    onReadyForServerCompletion: async (id, txid) => {
-                        await fetch(API_URL, {
-                            method: 'POST',
-                            headers: {'Content-Type': 'application/json'},
-                            body: JSON.stringify({ action: 'complete-deposit', paymentData: {paymentId: id, txid: txid}, amount, uid: currentUser.uid })
-                        });
-                        showStatus("✅ تم الإيداع بنجاح!", "success");
-                        toggleLoader('loader-dep', false);
-                    },
-                    onCancel: () => toggleLoader('loader-dep', false),
-                    onError: (err) => {
-                        showStatus("خطأ: " + err.message, "error");
-                        toggleLoader('loader-dep', false);
-                    }
-                });
-            } catch (err) { toggleLoader('loader-dep', false); }
+            currentUser = auth.user;
+            document.getElementById('user-display-name').innerText = "@" + currentUser.username;
+            document.getElementById('user-icon').innerText = currentUser.username[0].toUpperCase();
+            
+            document.getElementById('login-section').style.display = 'none';
+            document.getElementById('main-section').style.display = 'block';
+            updateStatus("تم الدخول بنجاح", "green");
+        } catch (err) {
+            updateStatus("فشل الدخول: " + err.message, "red");
         }
+    }
 
-        // 3. معالجة السحب (من التطبيق للمستخدم)
-        async function handleWithdraw() {
-            const amount = document.getElementById('withdrawAmount').value;
-            toggleLoader('loader-with', true);
-            showStatus("جاري معالجة السحب الآمن...");
+    // دالة الإيداع (من المستخدم للتطبيق)
+    async function handleDeposit() {
+        const amount = document.getElementById('dep-amount').value;
+        updateStatus("جاري فتح المحفظة...", "orange");
 
-            try {
-                const res = await fetch(API_URL, {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ 
-                        action: 'withdraw', 
-                        amount, 
-                        walletAddress: "G...", // يجب جلب محفظة المستخدم من قاعدة بياناتك
-                        uid: currentUser.uid 
-                    })
-                });
-                const data = await res.json();
-                
-                if(data.success) {
-                    showStatus(`✅ تم السحب!<br>Memo: ${data.memo}`, "success");
-                } else {
-                    showStatus("⚠️ " + data.message, "error");
-                }
-            } catch (err) {
-                showStatus("خطأ في الاتصال بالسيرفر", "error");
+        try {
+            const payment = await Pi.createPayment({
+                amount: parseFloat(amount),
+                memo: "Deposit to App",
+                metadata: { type: "deposit" }
+            }, {
+                onReadyForServerApproval: (id) => updateStatus("بانتظار موافقة السيرفر...", "blue"),
+                onReadyForServerCompletion: async (id, txid) => {
+                    updateStatus("جاري تأكيد المعاملة...", "orange");
+                    await fetch(API_ENDPOINT, {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({ 
+                            action: 'complete-deposit', 
+                            paymentData: {paymentId: id, txid: txid}, 
+                            amount: amount, 
+                            uid: currentUser.uid 
+                        })
+                    });
+                    updateStatus("✅ تم الإيداع بنجاح!", "green");
+                },
+                onCancel: () => updateStatus("تم إلغاء الدفع", "#666"),
+                onError: (err) => updateStatus("خطأ: " + err.message, "red")
+            });
+        } catch (err) { updateStatus(err.message, "red"); }
+    }
+
+    // دالة السحب (من التطبيق للمستخدم)
+    async function handleWithdraw() {
+        const amount = document.getElementById('with-amount').value;
+        updateStatus("جاري معالجة السحب السريع...", "orange");
+
+        try {
+            const response = await fetch(API_ENDPOINT, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ 
+                    action: 'withdraw', 
+                    amount: amount, 
+                    walletAddress: "G...", // تأكد من استبدالها بمحفظة الاختبار الخاصة بك
+                    uid: currentUser.uid 
+                })
+            });
+
+            const data = await response.json();
+            if (data.success) {
+                updateStatus(`✅ نجح السحب!<br><small>Memo: ${data.memo}</small>`, "green");
+            } else {
+                updateStatus("⚠️ " + data.message, "red");
             }
-            toggleLoader('loader-with', false);
+        } catch (err) {
+            updateStatus("فشل الاتصال بالسيرفر", "red");
         }
+    }
 
-        function showStatus(msg, type) {
-            const el = document.getElementById('status-msg');
-            el.innerHTML = msg;
-            el.style.color = type === 'error' ? '#f44336' : '#4caf50';
-        }
+    function onIncompletePayment(payment) {
+        // يمكن هنا استدعاء الـ API لإكمال أي دفعة لم تكتمل
+        console.log("Incomplete payment found:", payment);
+    }
 
-        function toggleLoader(id, show) {
-            document.getElementById(id).style.display = show ? 'inline-block' : 'none';
-        }
-    </script>
+    function updateStatus(msg, color) {
+        const statusDiv = document.getElementById('status-bar');
+        statusDiv.innerHTML = msg;
+        statusDiv.style.color = color;
+    }
+</script>
+
 </body>
 </html>
