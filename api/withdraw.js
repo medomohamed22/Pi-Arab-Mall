@@ -10,22 +10,26 @@ module.exports = async (req, res) => {
 
     if (req.method === 'OPTIONS') return res.status(200).end();
 
-    // 2. المتغيرات الأساسية (محفوظة كلياً كما طلبت)
+    // 2. المتغيرات الأساسية (محفوظة كلياً)
     const { walletAddress, amount, uid } = req.body;
     const PI_API_KEY = process.env.PI_API_KEY;
     const MY_WALLET_SEED = process.env.MY_WALLET_SEED;
 
     if (!PI_API_KEY || !MY_WALLET_SEED) {
-        return res.status(500).json({ success: false, message: "خطأ في تهيئة النظام. يرجى المحاولة لاحقاً." });
+        return res.status(500).json({ success: false, message: "Server Configuration Error" });
     }
 
     try {
-        // 3. إعدادات الشبكة
         const PI_HORIZON_URL = "https://api.testnet.minepi.com";
         const PI_NETWORK_PASSPHRASE = "Pi Testnet";
         const server = new StellarSdk.Server(PI_HORIZON_URL);
 
-        // 4. تسجيل الطلب في Pi API
+        // --- التعديل الجوهري لضمان معاملة فريدة ---
+        // نقوم بدمج الـ uid مع الوقت الحالي بالملي ثانية لضمان أن كل طلب جديد تماماً
+        const uniqueUid = `${uid}_${Date.now()}`; 
+        // ----------------------------------------
+
+        // 3. تسجيل طلب الدفع بـ UID فريد
         let paymentId;
         try {
             const piRes = await axios.post('https://api.minepi.com/v2/payments', {
@@ -33,28 +37,25 @@ module.exports = async (req, res) => {
                     amount: parseFloat(amount),
                     memo: "Withdrawal Payment",
                     metadata: { type: "withdraw" },
-                    uid: uid
+                    uid: uniqueUid // استخدام المعرف الفريد هنا
                 }
             }, { headers: { 'Authorization': `Key ${PI_API_KEY}` } });
             paymentId = piRes.data.identifier;
         } catch (apiErr) {
-            if (apiErr.response && apiErr.response.data && apiErr.response.data.error === "ongoing_payment_found") {
+            // حتى لو وجد معاملة معلقة، سنحاول جلبها
+            if (apiErr.response?.data?.error === "ongoing_payment_found") {
                 paymentId = apiErr.response.data.payment.identifier;
             } else {
                 throw apiErr;
             }
         }
 
-        // 5. بناء المعاملة على البلوكشين
+        // 4. بناء المعاملة (سيكون الـ Memo هو الـ PaymentId الجديد)
         const sourceKeypair = StellarSdk.Keypair.fromSecret(MY_WALLET_SEED);
-        const sourcePublicKey = sourceKeypair.publicKey();
-        const account = await server.loadAccount(sourcePublicKey);
-
-        const feeStats = await server.feeStats().catch(() => ({ last_ledger_base_fee: "10000" }));
-        const dynamicFee = (parseInt(feeStats.last_ledger_base_fee) * 3).toString();
-
+        const account = await server.loadAccount(sourceKeypair.publicKey());
+        
         const transaction = new StellarSdk.TransactionBuilder(account, {
-            fee: dynamicFee,
+            fee: "30000",
             networkPassphrase: PI_NETWORK_PASSPHRASE
         })
         .addOperation(StellarSdk.Operation.payment({
@@ -62,52 +63,39 @@ module.exports = async (req, res) => {
             asset: StellarSdk.Asset.native(),
             amount: amount.toString()
         }))
-        .addMemo(StellarSdk.Memo.text(paymentId)) 
+        .addMemo(StellarSdk.Memo.text(paymentId)) // الـ Memo سيكون دائماً فريداً الآن
         .setTimeout(180)
         .build();
 
-        // 6. التوقيع والإرسال
+        // 5. التوقيع والإرسال
         transaction.sign(sourceKeypair);
         const result = await server.submitTransaction(transaction);
         const txid = result.hash;
 
-        // 7. تأكيد الإكمال (مع إصلاح معالجة الخطأ المكرر)
+        // 6. التأكيد النهائي
         try {
-            await axios.post(`https://api.minepi.com/v2/payments/${paymentId}/complete`, {
-                txid: txid
-            }, { headers: { 'Authorization': `Key ${PI_API_KEY}` } });
-        } catch (completeErr) {
-            const errData = completeErr.response?.data;
-            // إذا كانت المعاملة مرتبطة بالفعل بالبلوكشين، فهذا يعني نجاحاً تاماً وليس خطأً
-            if (errData?.verification_error === "payment_already_linked_with_a_tx") {
-                console.log("العملية ناجحة ومأكدة مسبقاً.");
-            } else {
-                throw completeErr;
+            await axios.post(`https://api.minepi.com/v2/payments/${paymentId}/complete`, 
+                { txid: txid }, 
+                { headers: { 'Authorization': `Key ${PI_API_KEY}` } }
+            );
+        } catch (cErr) {
+            if (cErr.response?.data?.verification_error !== "payment_already_linked_with_a_tx") {
+                throw cErr;
             }
         }
 
-        // رسالة النجاح الصافية للمستخدم
         return res.json({
             success: true,
-            message: "✅ تم معالجة طلب السحب الخاص بك بنجاح ووصل الرصيد لمحفظتك!",
-            txid: txid
+            message: "✅ تم السحب بنجاح بـ Memo فريد!",
+            txid: txid,
+            paymentId: paymentId
         });
 
     } catch (error) {
-        // فحص الخطأ داخل الـ catch الرئيسي أيضاً لضمان عدم إزعاج المستخدم
-        const errData = error.response?.data;
-        if (errData?.verification_error === "payment_already_linked_with_a_tx") {
-            return res.json({
-                success: true,
-                message: "✅ تم معالجة طلب السحب الخاص بك بنجاح ووصل الرصيد لمحفظتك!"
-            });
-        }
-
-        console.error("Technical Error Details:", errData || error.message);
-        
+        console.error("Error Detail:", error.response?.data || error.message);
         return res.status(500).json({
             success: false,
-            message: "⚠️ عذراً، تعذر إكمال العملية حالياً. يرجى التأكد من رصيدك أو المحاولة مرة أخرى بعد قليل."
+            message: "⚠️ فشل السحب، يرجى المحاولة مرة أخرى."
         });
     }
 };
