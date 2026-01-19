@@ -4,94 +4,86 @@ module.exports = async (req, res) => {
     // إعدادات CORS
     res.setHeader('Access-Control-Allow-Credentials', true);
     res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,POST');
+    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
     if (req.method === 'OPTIONS') return res.status(200).end();
 
-    // الحفاظ على المدخلات والمتغيرات المطلوبة
+    // السطر المطلوب (لن يتم حذفه)
     const { walletAddress, amount, uid } = req.body;
     const PI_API_KEY = process.env.PI_API_KEY;
 
-    // دالة للتحقق من حالة العملية على البلوكشين (Polling)
-    const waitForBlockchainConfirmation = async (paymentId) => {
-        const maxAttempts = 10; // عدد محاولات الفحص
-        const interval = 3000;  // الانتظار 3 ثوانٍ بين كل فحص
-
-        for (let i = 0; i < maxAttempts; i++) {
-            console.log(`فحص حالة البلوكشين... محاولة رقم ${i + 1}`);
-            const checkRes = await axios.get(`https://api.minepi.com/v2/payments/${paymentId}`, {
-                headers: { 'Authorization': `Key ${PI_API_KEY}` }
-            });
-
-            // التأكد من أن المعاملة تم توثيقها (Verified) واكتملت برمجياً (Completed)
-            if (checkRes.data.status.transaction_verified && checkRes.data.status.developer_completed) {
-                return { confirmed: true, data: checkRes.data };
-            }
-            
-            // الانتظار قبل المحاولة القادمة
-            await new Promise(resolve => setTimeout(resolve, interval));
-        }
-        return { confirmed: false };
-    };
-
     try {
-        let paymentId;
+        let payment;
 
+        // 1. محاولة إنشاء أو جلب الدفعة المعلقة
         try {
-            // 1. محاولة إنشاء دفع جديد
             const response = await axios.post('https://api.minepi.com/v2/payments', {
                 payment: {
                     amount: parseFloat(amount),
                     memo: "Withdrawal from Pi Arab Mall",
-                    metadata: { type: "withdraw", target: walletAddress },
+                    metadata: { type: "withdraw" },
                     uid: uid
                 }
             }, {
                 headers: { 'Authorization': `Key ${PI_API_KEY}` }
             });
-            paymentId = response.data.identifier;
+            payment = response.data;
         } catch (error) {
             const errorData = error.response ? error.response.data : {};
-            // إذا وجد عملية معلقة، نستخدم المعرف الخاص بها
             if (errorData.error === "ongoing_payment_found") {
-                paymentId = errorData.payment.identifier;
-                console.log("تم اكتشاف عملية معلقة برقم:", paymentId);
+                payment = errorData.payment;
             } else {
-                throw error; // إعادة إلقاء الخطأ إذا لم يكن بسبب عملية معلقة
+                throw error;
             }
         }
 
-        // 2. إرسال أمر إكمال العملية (Complete) للسيرفر
-        await axios.post(`https://api.minepi.com/v2/payments/${paymentId}/complete`, {}, {
-            headers: { 'Authorization': `Key ${PI_API_KEY}` }
-        });
+        const paymentId = payment.identifier;
 
-        // 3. الانتظار حتى تأكيد البلوكشين
-        const confirmation = await waitForBlockchainConfirmation(paymentId);
+        // 2. الحصول على txid (رقم المعاملة) - ضروري جداً لتجنب الخطأ الذي ظهر لك
+        let txid = payment.transaction ? payment.transaction.txid : null;
 
-        if (confirmation.confirmed) {
-            return res.json({ 
-                success: true, 
-                status: "confirmed_on_blockchain",
-                paymentId: paymentId,
-                txid: confirmation.data.transaction.txid,
-                message: "تم تأكيد العملية بنجاح على البلوكشين" 
-            });
-        } else {
-            return res.json({ 
-                success: true, 
-                status: "pending_on_blockchain",
-                paymentId: paymentId,
-                message: "تم إرسال الطلب، لكنه يستغرق وقتاً طويلاً للتأكيد على البلوكشين. يمكنك الفحص لاحقاً." 
+        // إذا لم يتوفر txid فوراً، نقوم بعمل فحص (Polling) لمدة 10 ثوانٍ
+        if (!txid) {
+            for (let i = 0; i < 5; i++) {
+                await new Promise(r => setTimeout(r, 2000)); // انتظار ثانيتين بين كل محاولة
+                const checkStatus = await axios.get(`https://api.minepi.com/v2/payments/${paymentId}`, {
+                    headers: { 'Authorization': `Key ${PI_API_KEY}` }
+                });
+                if (checkStatus.data.transaction && checkStatus.data.transaction.txid) {
+                    txid = checkStatus.data.transaction.txid;
+                    break;
+                }
+            }
+        }
+
+        // 3. التحقق النهائي قبل الإكمال
+        if (!txid) {
+            return res.status(400).json({ 
+                success: false, 
+                message: "Blockchain txid not generated yet. Please try again in a moment." 
             });
         }
 
+        // 4. إرسال الـ txid إلى نقطة النهاية /complete (حل مشكلة txid param)
+        await axios.post(`https://api.minepi.com/v2/payments/${paymentId}/complete`, {
+            txid: txid
+        }, {
+            headers: { 'Authorization': `Key ${PI_API_KEY}` }
+        });
+
+        return res.json({
+            success: true,
+            paymentId: paymentId,
+            txid: txid,
+            message: "تم التأكيد والإكمال بنجاح"
+        });
+
     } catch (error) {
-        console.error("خطأ في التنفيذ:", error.response ? error.response.data : error.message);
-        return res.status(500).json({ 
-            success: false, 
-            message: error.response ? error.response.data.error_message : "خطأ في معالجة العملية" 
+        console.error("Pi API Error:", error.response ? error.response.data : error.message);
+        return res.status(500).json({
+            success: false,
+            message: error.response ? error.response.data.error_message : "Internal Server Error"
         });
     }
 };
