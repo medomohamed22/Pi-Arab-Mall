@@ -93,18 +93,13 @@ window.submitProduct=async function(){
   const name=el('addName').value.trim(),price=Number(el('addPrice').value),desc=el('addDesc').value.trim(),category=el('addCategory').value,condition=el('addCondition')?.value||'used',btn=el('publishBtn');
   if(!name||!price||price<=0||!category)return showToast('toast_fill_data','error');
   btn.disabled=true;btn.innerHTML='<i class="fa-solid fa-circle-notch fa-spin"></i> '+t('loading');
-  try{const patch={name,price,price_usd:price,price_pi_snapshot:piUsdPrice?usdToPi(price):null,pi_usd_snapshot:piUsdPrice||null,description:desc,category,condition};const {error}=await sb.from('products').update(patch).eq('id',editingProductId).eq('seller_pi_id',user.uid);if(error)throw error;editingProductId=null;closeAddModal();await loadAllProducts();await loadMyAds();showToast('changes_saved','success')}catch(e){showToast(friendlyDbError(e),'error')}finally{btn.disabled=false;btn.innerHTML=t('publish_btn')}
+  try{const patch={name,price,price_usd:price,price_pi_snapshot:piUsdPrice?usdToPi(price):null,pi_usd_snapshot:piUsdPrice||null,description:desc,category,condition,status:'pending'};const {error}=await sb.from('products').update(patch).eq('id',editingProductId).eq('seller_pi_id',user.uid);if(error)throw error;editingProductId=null;closeAddModal();await loadAllProducts();await loadMyAds();showToast('changes_saved','success')}catch(e){showToast(friendlyDbError(e),'error')}finally{btn.disabled=false;btn.innerHTML=t('publish_btn')}
 }
 
 const baseCloseAddModal=window.closeAddModal;
 window.closeAddModal=function(){editingProductId=null;if(el('publishBtn'))el('publishBtn').innerHTML=t('publish_btn');baseCloseAddModal()}
 
-async function showAdminPanel(){
-  if(!isAdminUser())return showToast('not_allowed','error');
-  const reports=await sb.from('reports').select('*').order('created_at',{ascending:false}).limit(20).catch(()=>({data:[]}));
-  const rows=(reports.data||[]).map(r=>`#${r.id} - product ${r.product_id}: ${escapeHtml(r.reason||'')}`).join('\n');
-  alert(`${t('admin_panel')}\n\n${t('reports')}:\n${rows||t('no_reports')}`);
-}
+function showAdminPanel(){if(!isAdminUser())return showToast('not_allowed','error');window.location.href='admin.html'}
 
 function applyFeatureTranslations(){
   if(translations.ar){Object.assign(translations.ar,{favorites:'المفضلة',no_favorites:'لا توجد إعلانات مفضلة',add_favorite:'إضافة للمفضلة',remove_favorite:'إزالة من المفضلة',share:'مشاركة',seller_profile:'ملف البائع',rate_seller:'تقييم البائع',report:'بلاغ',report_reason:'اكتب سبب البلاغ',report_sent:'تم إرسال البلاغ',rating_prompt:'اكتب التقييم من 1 إلى 5',rating_comment:'تعليق اختياري',rating_invalid:'التقييم يجب أن يكون من 1 إلى 5',rating_saved:'تم حفظ التقييم',rating:'التقييم',edit_ad:'تعديل الإعلان',save_changes:'حفظ التعديلات',changes_saved:'تم حفظ التعديلات',not_allowed:'غير مسموح',admin_panel:'لوحة الإدارة',reports:'البلاغات',no_reports:'لا توجد بلاغات',link_copied:'تم نسخ الرابط',min_price:'أقل سعر $',max_price:'أعلى سعر $',sort_latest:'الأحدث',sort_price_asc:'السعر من الأقل',sort_price_desc:'السعر من الأعلى',sort_views_desc:'الأكثر مشاهدة',label_condition:'حالة المنتج',condition_new:'جديد',condition_used:'مستعمل',condition_negotiable:'قابل للتفاوض'});}
@@ -132,16 +127,16 @@ window.submitProduct=async function(){
     if(editingProductId){
       const existing=globalProducts.find(x=>String(x.id)===String(editingProductId));
       if(!existing||existing.seller_pi_id!==user.uid)throw new Error(t('not_allowed'));
-      const patch={name,price,price_usd:price,price_pi_snapshot:piUsdPrice?usdToPi(price):null,pi_usd_snapshot:piUsdPrice||null,description:desc,category,condition};
+      const patch={name,price,price_usd:price,price_pi_snapshot:piUsdPrice?usdToPi(price):null,pi_usd_snapshot:piUsdPrice||null,description:desc,category,condition,status:'pending'};
       let {error}=await sb.from('products').update(patch).eq('id',editingProductId).eq('seller_pi_id',user.uid);
-      if(error&&/condition|price_usd|price_pi_snapshot|pi_usd_snapshot|schema cache|column/i.test(error.message||'')){const fallback={...patch};delete fallback.condition;delete fallback.price_usd;delete fallback.price_pi_snapshot;delete fallback.pi_usd_snapshot;({error}=await sb.from('products').update(fallback).eq('id',editingProductId).eq('seller_pi_id',user.uid))}
+      if(error&&/condition|price_usd|price_pi_snapshot|pi_usd_snapshot|schema cache|column/i.test(error.message||'')){const fallback={...patch};delete fallback.condition;delete fallback.status;delete fallback.price_usd;delete fallback.price_pi_snapshot;delete fallback.pi_usd_snapshot;({error}=await sb.from('products').update(fallback).eq('id',editingProductId).eq('seller_pi_id',user.uid))}
       if(error)throw error;editingProductId=null;closeAddModal();await loadAllProducts();await loadMyAds();showToast('changes_saved','success');return;
     }
     let uploadedUrls=[];
     if(selectedFiles.length>0){const options={maxSizeMB:.8,maxWidthOrHeight:1200,useWebWorker:true,fileType:'image/jpeg'};for(const file of selectedFiles){const compressedFile=await imageCompression(file,options);const path=`${user.uid}/${Date.now()}_${Math.random().toString(36).slice(2,7)}.jpg`;const {error}=await sb.storage.from('images').upload(path,compressedFile,{upsert:false,contentType:'image/jpeg'});if(error)throw error;uploadedUrls.push(sb.storage.from('images').getPublicUrl(path).data.publicUrl)}}
-    const fullRow={name,price,price_usd:price,price_pi_snapshot:piUsdPrice?usdToPi(price):null,pi_usd_snapshot:piUsdPrice||null,description:desc,images:uploadedUrls,image_url:uploadedUrls[0]||null,seller_pi_id:user.uid,seller_username:user.username,category,condition,location:state,country};
+    const fullRow={name,price,price_usd:price,price_pi_snapshot:piUsdPrice?usdToPi(price):null,pi_usd_snapshot:piUsdPrice||null,description:desc,images:uploadedUrls,image_url:uploadedUrls[0]||null,seller_pi_id:user.uid,seller_username:user.username,category,condition,status:'pending',location:state,country};
     let {error}=await sb.from('products').insert(fullRow);
-    if(error&&/condition|price_usd|price_pi_snapshot|pi_usd_snapshot|schema cache|column/i.test(error.message||'')){const fallback={...fullRow};delete fallback.condition;delete fallback.price_usd;delete fallback.price_pi_snapshot;delete fallback.pi_usd_snapshot;({error}=await sb.from('products').insert(fallback))}
+    if(error&&/condition|price_usd|price_pi_snapshot|pi_usd_snapshot|schema cache|column/i.test(error.message||'')){const fallback={...fullRow};delete fallback.condition;delete fallback.status;delete fallback.price_usd;delete fallback.price_pi_snapshot;delete fallback.pi_usd_snapshot;({error}=await sb.from('products').insert(fallback))}
     if(error)throw error;await loadAllProducts();await loadMyAds();showToast('toast_success_add');closeAddModal();
   }catch(e){console.error(e);showToast(friendlyDbError(e),'error')}finally{btn.innerHTML=t('publish_btn');btn.disabled=false}
 }
@@ -151,3 +146,6 @@ window.sendMsg=async function(){if(!rateLimit('dealway_message_rate',20,60*1000)
 
 const baseApplyFeatureTranslations=applyFeatureTranslations;
 applyFeatureTranslations=function(){baseApplyFeatureTranslations();Object.assign(translations.ar,{invalid_image_type:'نوع الصورة غير مدعوم',image_too_large:'حجم الصورة كبير جدًا',rate_limited:'انتظر قليلًا قبل تكرار العملية',desc_too_long:'الوصف طويل جدًا'});Object.assign(translations.en,{invalid_image_type:'Unsupported image type',image_too_large:'Image is too large',rate_limited:'Please wait before repeating this action',desc_too_long:'Description is too long'})}
+
+
+
