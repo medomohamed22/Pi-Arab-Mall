@@ -129,14 +129,14 @@ window.submitProduct=async function(){
       if(!existing||existing.seller_pi_id!==user.uid)throw new Error(t('not_allowed'));
       const patch={name,price,price_usd:price,price_pi_snapshot:piUsdPrice?usdToPi(price):null,pi_usd_snapshot:piUsdPrice||null,description:desc,category,condition,status:'pending'};
       let {error}=await sb.from('products').update(patch).eq('id',editingProductId).eq('seller_pi_id',user.uid);
-      if(error&&/condition|price_usd|price_pi_snapshot|pi_usd_snapshot|schema cache|column/i.test(error.message||'')){const fallback={...patch};delete fallback.condition;delete fallback.status;delete fallback.price_usd;delete fallback.price_pi_snapshot;delete fallback.pi_usd_snapshot;({error}=await sb.from('products').update(fallback).eq('id',editingProductId).eq('seller_pi_id',user.uid))}
+      if(error&&/condition|price_usd|price_pi_snapshot|pi_usd_snapshot|schema cache|column/i.test(error.message||'')){const fallback={...patch};delete fallback.condition;delete fallback.price_usd;delete fallback.price_pi_snapshot;delete fallback.pi_usd_snapshot;({error}=await sb.from('products').update(fallback).eq('id',editingProductId).eq('seller_pi_id',user.uid))}
       if(error)throw error;editingProductId=null;closeAddModal();await loadAllProducts();await loadMyAds();showToast('changes_saved','success');return;
     }
     let uploadedUrls=[];
     if(selectedFiles.length>0){const options={maxSizeMB:.8,maxWidthOrHeight:1200,useWebWorker:true,fileType:'image/jpeg'};for(const file of selectedFiles){const compressedFile=await imageCompression(file,options);const path=`${user.uid}/${Date.now()}_${Math.random().toString(36).slice(2,7)}.jpg`;const {error}=await sb.storage.from('images').upload(path,compressedFile,{upsert:false,contentType:'image/jpeg'});if(error)throw error;uploadedUrls.push(sb.storage.from('images').getPublicUrl(path).data.publicUrl)}}
     const fullRow={name,price,price_usd:price,price_pi_snapshot:piUsdPrice?usdToPi(price):null,pi_usd_snapshot:piUsdPrice||null,description:desc,images:uploadedUrls,image_url:uploadedUrls[0]||null,seller_pi_id:user.uid,seller_username:user.username,category,condition,status:'pending',location:state,country};
     let {error}=await sb.from('products').insert(fullRow);
-    if(error&&/condition|price_usd|price_pi_snapshot|pi_usd_snapshot|schema cache|column/i.test(error.message||'')){const fallback={...fullRow};delete fallback.condition;delete fallback.status;delete fallback.price_usd;delete fallback.price_pi_snapshot;delete fallback.pi_usd_snapshot;({error}=await sb.from('products').insert(fallback))}
+    if(error&&/condition|price_usd|price_pi_snapshot|pi_usd_snapshot|schema cache|column/i.test(error.message||'')){const fallback={...fullRow};delete fallback.condition;delete fallback.price_usd;delete fallback.price_pi_snapshot;delete fallback.pi_usd_snapshot;({error}=await sb.from('products').insert(fallback))}
     if(error)throw error;await loadAllProducts();await loadMyAds();showToast('toast_success_add');closeAddModal();
   }catch(e){console.error(e);showToast(friendlyDbError(e),'error')}finally{btn.innerHTML=t('publish_btn');btn.disabled=false}
 }
@@ -146,6 +146,7 @@ window.sendMsg=async function(){if(!rateLimit('dealway_message_rate',20,60*1000)
 
 const baseApplyFeatureTranslations=applyFeatureTranslations;
 applyFeatureTranslations=function(){baseApplyFeatureTranslations();Object.assign(translations.ar,{invalid_image_type:'نوع الصورة غير مدعوم',image_too_large:'حجم الصورة كبير جدًا',rate_limited:'انتظر قليلًا قبل تكرار العملية',desc_too_long:'الوصف طويل جدًا'});Object.assign(translations.en,{invalid_image_type:'Unsupported image type',image_too_large:'Image is too large',rate_limited:'Please wait before repeating this action',desc_too_long:'Description is too long'})}
+
 
 
 
