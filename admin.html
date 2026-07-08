@@ -8,8 +8,6 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"/>
   <link rel="stylesheet" href="css/admin.css" />
   <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
-  <script defer src="https://sdk.minepi.com/pi-sdk.js"></script>
-  <script defer src="js/admin-config.js"></script>
   <script defer src="js/admin.js"></script>
 </head>
 <body>
@@ -20,16 +18,21 @@
     </div>
     <div class="admin-actions">
       <a class="ghost-btn" href="index.html"><i class="fa-solid fa-arrow-right"></i> رجوع للموقع</a>
-      <button id="adminLoginBtn" class="primary-btn"><i class="fa-solid fa-fingerprint"></i> دخول الأدمن</button>
+      <button id="adminLogoutBtn" class="ghost-btn hidden"><i class="fa-solid fa-right-from-bracket"></i> خروج</button>
     </div>
   </header>
 
   <main class="admin-shell">
-    <section id="accessPanel" class="notice-card">
+    <section id="accessPanel" class="notice-card login-card">
       <i class="fa-solid fa-shield-halved"></i>
-      <div>
-        <h2>تسجيل دخول مطلوب</h2>
-        <p>يجب أن يكون Pi UID الخاص بك موجودًا داخل ملف <b>js/admin-config.js</b>.</p>
+      <div class="login-content">
+        <h2>دخول الأدمن</h2>
+        <p>سجل الدخول ببريد وكلمة مرور حساب الأدمن في Supabase.</p>
+        <div class="login-form">
+          <input id="adminEmail" class="admin-input" type="email" autocomplete="username" placeholder="admin@example.com" />
+          <input id="adminPassword" class="admin-input" type="password" autocomplete="current-password" placeholder="كلمة المرور" />
+          <button id="adminLoginBtn" class="primary-btn"><i class="fa-solid fa-lock"></i> دخول</button>
+        </div>
       </div>
     </section>
 

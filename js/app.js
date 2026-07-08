@@ -59,12 +59,11 @@ function openChatRoom(pid,otherId,pName,uName){if(!user)return showToast('toast_
 async function sendMsg(){const inp=el('msgInput');if(!activeChat||!inp.value.trim())return;const text=inp.value.trim();const product=globalProducts.find(p=>p.id==activeChat.pid);if(!product)return showToast('Product not found','error');if(product.seller_pi_id!==activeChat.otherId&&product.seller_pi_id!==user.uid){return showToast('Invalid chat target','error')}const {error}=await sb.from('messages').insert({product_id:activeChat.pid,sender_pi_id:user.uid,receiver_pi_id:activeChat.otherId,content:text});if(error){showToast('toast_send_fail','error');return}inp.value='';const telegramMsg=currentLang==='ar'?`<b>رسالة جديدة في Deal Way</b>\n\n<b>المنتج:</b>\n${product?.name||'منتج'}\n\n<b>من:</b>\n${user.username}\n\n<b>الرسالة:</b>\n${text}\n\nhttps://deallway.vercel.app/?product=${activeChat.pid}`:`<b>New message on Deal Way</b>\n\n<b>Product:</b>\n${product?.name||'Product'}\n\n<b>From:</b>\n${user.username}\n\n<b>Message:</b>\n${text}\n\nhttps://deallway.vercel.app/?product=${activeChat.pid}`;fetch('/api/send-telegram',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({receiver_pi_id:activeChat.otherId,message:telegramMsg})}).catch(console.error)}function closeChat(){el('chatModal').style.display='none';activeChat=null;if(activeChatChannel){sb.removeChannel(activeChatChannel);activeChatChannel=null}checkUnreadMessages()}
 async function loadInbox(){const list=el('inbox-list');list.innerHTML=`<div style="text-align:center;padding:40px"><div class="skeleton" style="height:80px;width:100%;margin-bottom:12px"></div><div class="skeleton" style="height:80px;width:100%"></div></div>`;const {data}=await sb.from('messages').select('*, products(name)').or(`sender_pi_id.eq.${user.uid},receiver_pi_id.eq.${user.uid}`).order('created_at',{ascending:false});list.innerHTML='';if(!data||!data.length)return list.innerHTML=`<div class="empty-state"><div class="empty-state-icon"><i class="fa-solid fa-inbox"></i></div><h3>${escapeHtml(t('no_messages'))}</h3><p>${currentLang==='ar'?'ستظهر رسائلك هنا عندما تتواصل مع البائعين':'Your messages will appear here when you contact sellers.'}</p></div>`;const threads=new Map();data.forEach(m=>{const otherId=(m.sender_pi_id===user.uid)?m.receiver_pi_id:m.sender_pi_id;const key=`${m.product_id}_${otherId}`;if(!threads.has(key))threads.set(key,{pid:m.product_id,otherId,pName:m.products?.name||'Item',last:m.content,name:'User',unread:(!m.is_read&&m.receiver_pi_id===user.uid)})});const otherIds=Array.from(threads.values()).map(t=>t.otherId);if(otherIds.length>0){const {data:users}=await sb.from('users').select('pi_id,username').in('pi_id',otherIds);if(users)users.forEach(u=>threads.forEach(t=>{if(t.otherId===u.pi_id)t.name=u.username}))}threads.forEach(t=>{list.innerHTML+=`<div class="inbox-item ${t.unread?'unread':''}" onclick="openChatRoom(${Number(t.pid)}, '${escapeAttr(t.otherId)}', '${escapeAttr(t.pName)}', '${escapeAttr(t.name)}')"><div class="inbox-avatar">${escapeHtml(String(t.name||'U').charAt(0))}</div><div class="inbox-info"><div class="inbox-name">${escapeHtml(t.name)} <span style="font-weight:400;color:var(--text-light);font-size:12px">(${escapeHtml(t.pName)})</span></div><div class="inbox-msg">${escapeHtml(t.last)}</div></div>${t.unread?'<div class="unread-dot"></div>':''}</div>`});checkUnreadMessages()}
 document.addEventListener('DOMContentLoaded',async()=>{updateLanguage();initDragAndDrop();const sdkReady=await waitForSupabaseSdk();if(!sdkReady){showToast('Supabase SDK failed to load','error');return}try{sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{persistSession:false,autoRefreshToken:false}});isSupabaseReady=true}catch(e){showToast('Supabase init error','error');return}initPi();refreshPiPrice();loadAllProducts();initLocations()});setInterval(refreshPiPrice,60000);
-const ADMIN_PI_IDS = window.ADMIN_PI_IDS || [];
 let editingProductId = null;
 let favoriteIds = new Set(JSON.parse(localStorage.getItem('dealway_favorites') || '[]'));
 
 function saveLocalFavorites(){localStorage.setItem('dealway_favorites', JSON.stringify([...favoriteIds]))}
-function isAdminUser(){return !!(user && ADMIN_PI_IDS.includes(user.uid))}
+function isAdminUser(){return !!user}
 function currentProduct(){const title=el('detail-title')?.innerText;return globalProducts.find(p=>p.name===title)||null}
 function getProductCondition(p){return p.condition || p.product_condition || 'used'}
 function conditionLabel(value){const map={new:t('condition_new'),used:t('condition_used'),negotiable:t('condition_negotiable')};return map[value]||map.used}
@@ -83,9 +82,9 @@ function ensureFeatureControls(){
   const profileLinks=document.querySelector('#profile-user .links-list');
   if(profileLinks&&!el('favoritesLink')){
     profileLinks.insertAdjacentHTML('afterbegin',`<button id="favoritesLink" class="link-item" type="button" onclick="showFavoritesView()"><i class="fa-solid fa-heart"></i><span>${escapeHtml(t('favorites'))}</span><i class="fa-solid fa-chevron-left"></i></button>`);
-    profileLinks.insertAdjacentHTML('beforeend',`<button id="adminLink" class="link-item hidden" type="button" onclick="showAdminPanel()"><i class="fa-solid fa-user-shield"></i><span>${escapeHtml(t('admin_panel'))}</span><i class="fa-solid fa-chevron-left"></i></button>`);
+    profileLinks.insertAdjacentHTML('beforeend',`<button id="adminLink" class="link-item" type="button" onclick="showAdminPanel()"><i class="fa-solid fa-user-shield"></i><span>${escapeHtml(t('admin_panel'))}</span><i class="fa-solid fa-chevron-left"></i></button>`);
   }
-  if(el('adminLink')) el('adminLink').classList.toggle('hidden',!isAdminUser());
+  if(el('adminLink')) el('adminLink').classList.remove('hidden');
 }
 
 function sortFilteredProducts(products){
@@ -120,12 +119,12 @@ async function toggleFavorite(pid){
 async function showFavoritesView(){
   document.querySelectorAll('.view-section').forEach(e=>e.classList.add('hidden'));el('view-home').classList.remove('hidden');
   document.querySelectorAll('.nav-item').forEach(e=>e.classList.remove('active'));
-  const list=el('products-list');list.innerHTML='';
   const favs=globalProducts.filter(p=>favoriteIds.has(String(p.id)));
-  safeSetHtml('cat-filters','');
+  safeSetHtml('cat-filters',`<button class="btn btn-ghost" onclick="closeFavoritesView()"><i class="fa-solid fa-arrow-right"></i> ${escapeHtml(t('btn_back'))}</button>`);
   safeSetHtml('products-list',favs.length?'':'<div class="empty-state" style="grid-column:1/-1"><div class="empty-state-icon"><i class="fa-solid fa-heart"></i></div><h3>'+escapeHtml(t('no_favorites'))+'</h3></div>');
   if(favs.length){const previous=globalProducts;globalProducts=favs;activeCategory='all';renderProducts();globalProducts=previous;}
 }
+function closeFavoritesView(){initCategories();activeCategory='all';renderProducts();document.querySelectorAll('.nav-item')[0]?.classList.add('active')}
 
 const baseOpenProductDetails=window.openProductDetails;
 window.openProductDetails=async function(pid){await baseOpenProductDetails(pid);renderDetailFeatureActions(pid)}
@@ -160,7 +159,7 @@ window.submitProduct=async function(){
 const baseCloseAddModal=window.closeAddModal;
 window.closeAddModal=function(){editingProductId=null;if(el('publishBtn'))el('publishBtn').innerHTML=t('publish_btn');baseCloseAddModal()}
 
-function showAdminPanel(){if(!isAdminUser())return showToast('not_allowed','error');window.location.href='admin.html'}
+function showAdminPanel(){window.location.href='admin.html'}
 
 function applyFeatureTranslations(){
   if(translations.ar){Object.assign(translations.ar,{favorites:'المفضلة',no_favorites:'لا توجد إعلانات مفضلة',add_favorite:'إضافة للمفضلة',remove_favorite:'إزالة من المفضلة',share:'مشاركة',seller_profile:'ملف البائع',rate_seller:'تقييم البائع',report:'بلاغ',report_reason:'اكتب سبب البلاغ',report_sent:'تم إرسال البلاغ',rating_prompt:'اكتب التقييم من 1 إلى 5',rating_comment:'تعليق اختياري',rating_invalid:'التقييم يجب أن يكون من 1 إلى 5',rating_saved:'تم حفظ التقييم',rating:'التقييم',edit_ad:'تعديل الإعلان',save_changes:'حفظ التعديلات',changes_saved:'تم حفظ التعديلات',not_allowed:'غير مسموح',admin_panel:'لوحة الإدارة',reports:'البلاغات',no_reports:'لا توجد بلاغات',link_copied:'تم نسخ الرابط',min_price:'أقل سعر $',max_price:'أعلى سعر $',sort_latest:'الأحدث',sort_price_asc:'السعر من الأقل',sort_price_desc:'السعر من الأعلى',sort_views_desc:'الأكثر مشاهدة',label_condition:'حالة المنتج',condition_new:'جديد',condition_used:'مستعمل',condition_negotiable:'قابل للتفاوض'});}

@@ -1,9 +1,8 @@
-﻿const ADMIN_PI_IDS = window.ADMIN_PI_IDS || [];
-let editingProductId = null;
+﻿let editingProductId = null;
 let favoriteIds = new Set(JSON.parse(localStorage.getItem('dealway_favorites') || '[]'));
 
 function saveLocalFavorites(){localStorage.setItem('dealway_favorites', JSON.stringify([...favoriteIds]))}
-function isAdminUser(){return !!(user && ADMIN_PI_IDS.includes(user.uid))}
+function isAdminUser(){return !!user}
 function currentProduct(){const title=el('detail-title')?.innerText;return globalProducts.find(p=>p.name===title)||null}
 function getProductCondition(p){return p.condition || p.product_condition || 'used'}
 function conditionLabel(value){const map={new:t('condition_new'),used:t('condition_used'),negotiable:t('condition_negotiable')};return map[value]||map.used}
@@ -22,9 +21,9 @@ function ensureFeatureControls(){
   const profileLinks=document.querySelector('#profile-user .links-list');
   if(profileLinks&&!el('favoritesLink')){
     profileLinks.insertAdjacentHTML('afterbegin',`<button id="favoritesLink" class="link-item" type="button" onclick="showFavoritesView()"><i class="fa-solid fa-heart"></i><span>${escapeHtml(t('favorites'))}</span><i class="fa-solid fa-chevron-left"></i></button>`);
-    profileLinks.insertAdjacentHTML('beforeend',`<button id="adminLink" class="link-item hidden" type="button" onclick="showAdminPanel()"><i class="fa-solid fa-user-shield"></i><span>${escapeHtml(t('admin_panel'))}</span><i class="fa-solid fa-chevron-left"></i></button>`);
+    profileLinks.insertAdjacentHTML('beforeend',`<button id="adminLink" class="link-item" type="button" onclick="showAdminPanel()"><i class="fa-solid fa-user-shield"></i><span>${escapeHtml(t('admin_panel'))}</span><i class="fa-solid fa-chevron-left"></i></button>`);
   }
-  if(el('adminLink')) el('adminLink').classList.toggle('hidden',!isAdminUser());
+  if(el('adminLink')) el('adminLink').classList.remove('hidden');
 }
 
 function sortFilteredProducts(products){
@@ -59,12 +58,12 @@ async function toggleFavorite(pid){
 async function showFavoritesView(){
   document.querySelectorAll('.view-section').forEach(e=>e.classList.add('hidden'));el('view-home').classList.remove('hidden');
   document.querySelectorAll('.nav-item').forEach(e=>e.classList.remove('active'));
-  const list=el('products-list');list.innerHTML='';
   const favs=globalProducts.filter(p=>favoriteIds.has(String(p.id)));
-  safeSetHtml('cat-filters','');
+  safeSetHtml('cat-filters',`<button class="btn btn-ghost" onclick="closeFavoritesView()"><i class="fa-solid fa-arrow-right"></i> ${escapeHtml(t('btn_back'))}</button>`);
   safeSetHtml('products-list',favs.length?'':'<div class="empty-state" style="grid-column:1/-1"><div class="empty-state-icon"><i class="fa-solid fa-heart"></i></div><h3>'+escapeHtml(t('no_favorites'))+'</h3></div>');
   if(favs.length){const previous=globalProducts;globalProducts=favs;activeCategory='all';renderProducts();globalProducts=previous;}
 }
+function closeFavoritesView(){initCategories();activeCategory='all';renderProducts();document.querySelectorAll('.nav-item')[0]?.classList.add('active')}
 
 const baseOpenProductDetails=window.openProductDetails;
 window.openProductDetails=async function(pid){await baseOpenProductDetails(pid);renderDetailFeatureActions(pid)}
@@ -99,7 +98,7 @@ window.submitProduct=async function(){
 const baseCloseAddModal=window.closeAddModal;
 window.closeAddModal=function(){editingProductId=null;if(el('publishBtn'))el('publishBtn').innerHTML=t('publish_btn');baseCloseAddModal()}
 
-function showAdminPanel(){if(!isAdminUser())return showToast('not_allowed','error');window.location.href='admin.html'}
+function showAdminPanel(){window.location.href='admin.html'}
 
 function applyFeatureTranslations(){
   if(translations.ar){Object.assign(translations.ar,{favorites:'المفضلة',no_favorites:'لا توجد إعلانات مفضلة',add_favorite:'إضافة للمفضلة',remove_favorite:'إزالة من المفضلة',share:'مشاركة',seller_profile:'ملف البائع',rate_seller:'تقييم البائع',report:'بلاغ',report_reason:'اكتب سبب البلاغ',report_sent:'تم إرسال البلاغ',rating_prompt:'اكتب التقييم من 1 إلى 5',rating_comment:'تعليق اختياري',rating_invalid:'التقييم يجب أن يكون من 1 إلى 5',rating_saved:'تم حفظ التقييم',rating:'التقييم',edit_ad:'تعديل الإعلان',save_changes:'حفظ التعديلات',changes_saved:'تم حفظ التعديلات',not_allowed:'غير مسموح',admin_panel:'لوحة الإدارة',reports:'البلاغات',no_reports:'لا توجد بلاغات',link_copied:'تم نسخ الرابط',min_price:'أقل سعر $',max_price:'أعلى سعر $',sort_latest:'الأحدث',sort_price_asc:'السعر من الأقل',sort_price_desc:'السعر من الأعلى',sort_views_desc:'الأكثر مشاهدة',label_condition:'حالة المنتج',condition_new:'جديد',condition_used:'مستعمل',condition_negotiable:'قابل للتفاوض'});}
@@ -146,6 +145,7 @@ window.sendMsg=async function(){if(!rateLimit('dealway_message_rate',20,60*1000)
 
 const baseApplyFeatureTranslations=applyFeatureTranslations;
 applyFeatureTranslations=function(){baseApplyFeatureTranslations();Object.assign(translations.ar,{invalid_image_type:'نوع الصورة غير مدعوم',image_too_large:'حجم الصورة كبير جدًا',rate_limited:'انتظر قليلًا قبل تكرار العملية',desc_too_long:'الوصف طويل جدًا'});Object.assign(translations.en,{invalid_image_type:'Unsupported image type',image_too_large:'Image is too large',rate_limited:'Please wait before repeating this action',desc_too_long:'Description is too long'})}
+
 
 
 

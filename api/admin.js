@@ -1,18 +1,12 @@
 ﻿const SUPABASE_URL = process.env.SUPABASE_URL || 'https://xncapmzlwuisupkjlftb.supabase.co';
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const ADMIN_PI_IDS = (process.env.ADMIN_PI_IDS || '').split(',').map(x => x.trim()).filter(Boolean);
+const ANON_KEY = process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_zPECXAiI_bDbeLtRYe3vIw_IEt_p_AS';
 
-function json(res, status, body) {
-  res.status(status).json(body);
-}
-
-function assertAdmin(adminPiId) {
-  if (!SERVICE_ROLE_KEY) throw new Error('Missing SUPABASE_SERVICE_ROLE_KEY env var');
-  if (!adminPiId) throw new Error('Missing adminPiId');
-  if (!ADMIN_PI_IDS.includes(adminPiId)) throw new Error('Not allowed');
-}
+function json(res, status, body) { res.status(status).json(body); }
+function bearer(req) { const h = req.headers.authorization || ''; return h.startsWith('Bearer ') ? h.slice(7) : ''; }
 
 async function supabaseRest(path, options = {}) {
+  if (!SERVICE_ROLE_KEY) throw new Error('Missing SUPABASE_SERVICE_ROLE_KEY env var');
   const response = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
     ...options,
     headers: {
@@ -23,22 +17,37 @@ async function supabaseRest(path, options = {}) {
       ...(options.headers || {}),
     },
   });
-
   const text = await response.text();
   const data = text ? JSON.parse(text) : null;
-  if (!response.ok) {
-    throw new Error(data?.message || data?.error || `Supabase REST error ${response.status}`);
-  }
+  if (!response.ok) throw new Error(data?.message || data?.error || `Supabase REST error ${response.status}`);
   return data;
+}
+
+async function getAuthUser(token) {
+  if (!token) throw new Error('Missing admin auth token');
+  const response = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+    headers: { apikey: ANON_KEY, authorization: `Bearer ${token}` },
+  });
+  const user = await response.json().catch(() => null);
+  if (!response.ok || !user?.email) throw new Error('Invalid admin session');
+  return user;
+}
+
+async function assertAdmin(req) {
+  const user = await getAuthUser(bearer(req));
+  const email = String(user.email || '').toLowerCase();
+  const rows = await supabaseRest(`admins?select=*&or=(email.eq.${encodeURIComponent(email)},auth_user_id.eq.${encodeURIComponent(user.id)})`);
+  if (!rows?.length) throw new Error('Not allowed');
+  return { authUser: user, admin: rows[0] };
 }
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return json(res, 405, { error: 'Method not allowed' });
 
   try {
+    const { authUser } = await assertAdmin(req);
     const body = req.body || {};
-    const { action, adminPiId } = body;
-    assertAdmin(adminPiId);
+    const { action } = body;
 
     if (action === 'list') {
       const [products, users, reports] = await Promise.all([
@@ -54,7 +63,7 @@ export default async function handler(req, res) {
       if (!productId || !['pending', 'active', 'rejected'].includes(status)) throw new Error('Invalid product status request');
       const row = await supabaseRest(`products?id=eq.${encodeURIComponent(productId)}`, {
         method: 'PATCH',
-        body: JSON.stringify({ status, reviewed_by: adminPiId, reviewed_at: new Date().toISOString() }),
+        body: JSON.stringify({ status, reviewed_by: authUser.email, reviewed_at: new Date().toISOString() }),
       });
       return json(res, 200, { product: row?.[0] || null });
     }
@@ -88,6 +97,6 @@ export default async function handler(req, res) {
 
     throw new Error('Unknown admin action');
   } catch (error) {
-    return json(res, 400, { error: error.message || 'Admin API error' });
+    return json(res, 403, { error: error.message || 'Admin API error' });
   }
 }

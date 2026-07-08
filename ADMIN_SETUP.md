@@ -1,45 +1,42 @@
 ﻿# إعداد لوحة الإدارة والمراجعة
 
-إذا الإعلان لا يظهر في لوحة الأدمن، راجع هذه النقاط بالترتيب:
+لو الإعلان لا يظهر في لوحة الأدمن، اتبع الخطوات بالترتيب:
 
-1. شغل ملف قاعدة البيانات:
+1. شغل ملف قاعدة البيانات في Supabase SQL Editor:
    `database/supabase-security-features.sql`
 
-   هذا الملف يضيف أهم الأعمدة، خصوصًا:
-   - `products.status`
-   - `products.reviewed_by`
-   - `products.reviewed_at`
-   - جدول `admins`
+2. أنشئ مستخدم أدمن من Supabase Dashboard:
+   Authentication > Users > Add user
 
-2. أضف حساب الأدمن في Supabase بعد تشغيل SQL:
+   استخدم بريد وكلمة مرور للأدمن.
+
+3. أضف البريد إلى جدول `admins`:
 
 ```sql
-insert into public.admins (pi_id, username)
-values ('YOUR_PI_UID', 'Admin')
-on conflict (pi_id) do nothing;
+insert into public.admins (email, username)
+values ('admin@example.com', 'Admin')
+on conflict (email) do nothing;
 ```
 
-3. عدل ملف الواجهة:
-   `js/admin-config.js`
-
-```js
-window.ADMIN_PI_IDS = ['YOUR_PI_UID'];
-```
+يمكنك أيضًا ربطه بـ `auth_user_id` لاحقًا، لكن البريد يكفي للوحة الحالية.
 
 4. على Vercel أضف Environment Variables:
 
 ```text
 SUPABASE_URL=https://xncapmzlwuisupkjlftb.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=ضع service role key من Supabase هنا
-ADMIN_PI_IDS=YOUR_PI_UID
+SUPABASE_ANON_KEY=ضع anon/publishable key هنا
 ```
 
-مهم: لا تضع `SUPABASE_SERVICE_ROLE_KEY` داخل ملفات JavaScript الأمامية. يوضع فقط في Vercel Environment Variables.
+مهم جدًا:
+- لا تضع `SUPABASE_SERVICE_ROLE_KEY` داخل أي ملف frontend.
+- يوضع فقط داخل Vercel Environment Variables.
+- دخول الأدمن الآن يتم من `admin.html` بالبريد وكلمة المرور عبر Supabase Auth.
 
-5. بعد هذه الخطوات:
-   - الإعلان الجديد يدخل بحالة `pending`.
+5. بعد الإعداد:
+   - أي إعلان جديد يدخل `pending`.
    - لا يظهر للجمهور.
-   - يظهر في `admin.html` داخل تبويب مراجعة الإعلانات.
-   - عند الموافقة يتحول إلى `active` ويظهر في الصفحة الرئيسية.
+   - يظهر في `admin.html` للمراجعة.
+   - بعد الموافقة يصبح `active` ويظهر في الصفحة الرئيسية.
 
-لو لم تشغل SQL، لن تعمل المراجعة لأن قاعدة البيانات لن تعرف عمود `status`.
+لو لم تشغل SQL، لن تعمل المراجعة لأن عمود `status` وجدول `admins` غير موجودين.
