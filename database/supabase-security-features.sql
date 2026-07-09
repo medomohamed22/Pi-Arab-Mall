@@ -10,26 +10,43 @@ alter table if exists public.products add column if not exists status text defau
 alter table if exists public.products add column if not exists reviewed_by text;
 alter table if exists public.products add column if not exists reviewed_at timestamptz;
 alter table if exists public.products add column if not exists updated_at timestamptz default now();
-update public.products set status = 'pending' where status is null;
+
+do $$
+begin
+  if to_regclass('public.products') is not null then
+    update public.products set status = 'pending' where status is null;
+  end if;
+end $$;
 
 create table if not exists public.admins (
   id bigserial primary key,
   created_at timestamptz not null default now()
 );
 
--- Upgrade older admin tables safely.
--- If an older table has a required pi_id primary key, keep it; the insert block below fills pi_id with the admin email for compatibility.
 alter table public.admins add column if not exists email text;
 alter table public.admins add column if not exists auth_user_id uuid;
 alter table public.admins add column if not exists username text;
 alter table public.admins add column if not exists created_at timestamptz default now();
 
+-- Older versions used pi_id as a required admin identifier.
+-- The new admin login uses Supabase Auth email/password, so pi_id must not block email-based inserts.
+do $$
+begin
+  if exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'admins' and column_name = 'pi_id'
+  ) then
+    execute 'alter table public.admins alter column pi_id drop not null';
+    update public.admins
+    set pi_id = coalesce(pi_id, email, auth_user_id::text, id::text)
+    where pi_id is null;
+  end if;
+end $$;
+
 create unique index if not exists admins_email_unique on public.admins (lower(email)) where email is not null;
 create unique index if not exists admins_auth_user_id_unique on public.admins (auth_user_id) where auth_user_id is not null;
 
 -- Add your Supabase Auth admin email safely, whether your admins table is old or new.
--- Replace the email below, then run the block.
--- Old tables may still have a required pi_id column, so this block fills it with the email when needed.
 do $$
 begin
   if exists (
@@ -96,7 +113,6 @@ create index if not exists idx_admins_email on public.admins(email);
 alter table public.admins enable row level security;
 alter table public.admin_actions enable row level security;
 
--- Admins can read their own admin row after Supabase email/password login.
 drop policy if exists admins_self_read on public.admins;
 create policy admins_self_read on public.admins
 for select
@@ -108,6 +124,3 @@ using (lower(email) = lower(auth.jwt() ->> 'email'));
 -- drop policy if exists products_public_read_active on public.products;
 -- create policy products_public_read_active on public.products
 -- for select using (coalesce(status,'pending') = 'active');
-
-
-
