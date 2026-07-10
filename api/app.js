@@ -41,7 +41,7 @@ function verifySessionToken(token) {
   if (!token || !token.includes('.')) throw new Error('Missing session');
   const [payload, sig] = token.split('.');
   const expected = sign(payload);
-  if (!crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected))) throw new Error('Invalid session');
+  if (sig.length !== expected.length || !crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected))) throw new Error('Invalid session');
   const data = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8'));
   if (!data.pi_id || Date.now() - Number(data.iat || 0) > 1000 * 60 * 60 * 24 * 30) throw new Error('Expired session');
   return { pi_id: String(data.pi_id), username: String(data.username || '') };
@@ -52,7 +52,7 @@ function requireUser(req) { return verifySessionToken(authHeader(req)); }
 async function verifyPiLogin(piId, accessToken) {
   if (!accessToken) {
     if (process.env.ALLOW_UNVERIFIED_PI_LOGIN === 'true') return;
-    return;
+    throw new Error('Missing Pi access token');
   }
   const response = await fetch(`${PI_API_BASE}/me`, { headers: { Authorization: `Bearer ${accessToken}` } });
   if (!response.ok) throw new Error('Pi login verification failed');
