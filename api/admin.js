@@ -1,4 +1,6 @@
-﻿const SUPABASE_URL = process.env.SUPABASE_URL || 'https://xncapmzlwuisupkjlftb.supabase.co';
+﻿function normalizeSupabaseUrl(value) { return String(value || '').trim().replace(/\/+$/, '').replace(/\/rest\/v1$/i, ''); }
+
+const SUPABASE_URL = normalizeSupabaseUrl(process.env.SUPABASE_URL || 'https://xncapmzlwuisupkjlftb.supabase.co');
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const ANON_KEY = process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_zPECXAiI_bDbeLtRYe3vIw_IEt_p_AS';
 
