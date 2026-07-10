@@ -1,8 +1,11 @@
 const { createClient } = require('@supabase/supabase-js');
 const crypto = require('crypto');
 
+function normalizeSupabaseUrl(value) { return String(value || '').trim().replace(/\/+$/, '').replace(/\/rest\/v1$/i, ''); }
+
+const SUPABASE_URL = normalizeSupabaseUrl(process.env.SUPABASE_URL);
 const SESSION_SECRET = process.env.APP_SESSION_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY;
-const sb = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false, autoRefreshToken: false } });
+const sb = createClient(SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false, autoRefreshToken: false } });
 
 function sign(value) { return crypto.createHmac('sha256', SESSION_SECRET).update(value).digest('base64url'); }
 function requireUser(req) { const h = req.headers.authorization || ''; const token = h.startsWith('Bearer ') ? h.slice(7) : ''; const [payload, sig] = token.split('.'); if (!payload || !sig || sign(payload) !== sig) throw new Error('Invalid session'); const data = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8')); if (!data.pi_id) throw new Error('Invalid session'); return { pi_id: String(data.pi_id) }; }
@@ -15,7 +18,7 @@ module.exports = async function handler(req, res) {
     if (!receiver_pi_id || !message) return res.status(400).json({ ok: false, error: 'receiver_pi_id and message are required' });
 
     const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
-    if (!process.env.SUPABASE_URL) return res.status(500).json({ ok: false, error: 'SUPABASE_URL missing' });
+    if (!SUPABASE_URL) return res.status(500).json({ ok: false, error: 'SUPABASE_URL missing' });
     if (!process.env.SUPABASE_SERVICE_ROLE_KEY) return res.status(500).json({ ok: false, error: 'SUPABASE_SERVICE_ROLE_KEY missing' });
     if (!BOT_TOKEN) return res.status(500).json({ ok: false, error: 'TELEGRAM_BOT_TOKEN missing' });
 
