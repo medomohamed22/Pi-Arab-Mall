@@ -1,7 +1,9 @@
 const { createClient } = require('@supabase/supabase-js');
 const crypto = require('crypto');
 
-const SUPABASE_URL = process.env.SUPABASE_URL;
+function normalizeSupabaseUrl(value) { return String(value || '').trim().replace(/\/+$/, '').replace(/\/rest\/v1$/i, ''); }
+
+const SUPABASE_URL = normalizeSupabaseUrl(process.env.SUPABASE_URL);
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const PI_API_KEY = process.env.PI_API_KEY;
 const SESSION_SECRET = process.env.APP_SESSION_SECRET || SUPABASE_SERVICE_ROLE_KEY;
